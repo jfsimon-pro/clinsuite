@@ -1,0 +1,401 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id           String   @id @default(uuid())
+  name         String
+  cnpj         String   @unique
+  logoUrl      String?
+  primaryColor String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  funnels      Funnel[]
+  leads        Lead[]
+  users        User[]
+  whatsappConnections WhatsAppConnection[]
+  taskRules    StageTaskRule[]
+  tasks        Task[]
+}
+
+model User {
+  id        String        @id @default(uuid())
+  email     String        @unique
+  password  String
+  name      String
+  role      Role
+  specialty UserSpecialty @default(GENERAL)
+  companyId String
+  createdAt DateTime      @default(now())
+  leads     Lead[]        @relation("LeadOwner")
+  dentistLeads Lead[]     @relation("LeadDentist")
+  leadNotes LeadNote[]
+  reminders Reminder[]
+  assignedTaskRules StageTaskRule[] @relation("TaskRuleAssignedUser")
+  assignedTasks     Task[]          @relation("TaskAssigned")
+  completedTasks    Task[]          @relation("TaskCompletedBy")
+  company   Company       @relation(fields: [companyId], references: [id])
+}
+
+model Funnel {
+  id        String       @id @default(uuid())
+  name      String
+  companyId String
+  createdAt DateTime     @default(now())
+  company   Company      @relation(fields: [companyId], references: [id])
+  steps     FunnelStep[]
+  leads     Lead[]
+}
+
+model FunnelStep {
+  id       String         @id @default(uuid())
+  name     String
+  order    Int
+  funnelId String
+  funnel   Funnel         @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  leads    Lead[]
+  rules    ReminderRule[]
+  taskRules StageTaskRule[]
+
+  // NOVOS CAMPOS PARA ANALYTICS
+  tipoEtapa             TipoEtapa               @default(QUALIFICACAO)
+  tipoConceitual        TipoEtapaConceitual     @default(CAPTACAO) // Campo principal para relatórios universais
+  metaConversao         Float?                  // Meta de conversão para próxima etapa (%)
+  tempoMedioEtapa       Int?                    // Tempo médio em dias
+  valorMedioEtapa       Decimal?                // Valor médio dos leads nesta etapa
+  corEtapa              String?                 // Cor para visualização
+  iconEtapa             String?                 // Ícone para visualização
+}
+
+model Lead {
+  id                    String              @id @default(uuid())
+  phone                 String              // OBRIGATÓRIO - único campo necessário para criar
+  name                  String?             // Opcional - pode ser adicionado depois
+  funnelId              String
+  stepId                String
+  responsibleId         String?             // Opcional - pode não ter responsável inicialmente
+  dentistaId            String?             // Opcional - dentista responsável pelo lead
+  companyId             String
+
+  // Campos de negócio
+  valorVenda            Decimal?            // Valor da venda em R$
+  dataConsulta          DateTime?           // Data e hora da consulta
+  duracaoConsulta       Int?                // Duração da consulta em minutos (padrão 60)
+  tipoProcura           TipoProcura?        // Dropdown
+  meioCaptacao          MeioCaptacao?       // Dropdown
+  closerNegociacao      String?             // Nome do colaborador closer de negociação
+  closerFollow          String?             // Nome do colaborador closer de follow
+  dentista              Dentista?           // Dropdown (DEPRECATED - usar dentistaId)
+  motivoPerda           MotivoPerda?        // Dropdown
+  dentistaParticipou    DentistaParticipou? // Dropdown
+  previsaoFechamento    DateTime?           // Data de previsão
+  objecao               Objecao?            // Dropdown
+  observacoes           String?             // Campo de texto grande
+
+  // NOVOS CAMPOS PARA ANALYTICS
+  statusVenda           StatusVenda         @default(QUALIFICANDO)
+  valorOrcamento        Decimal?            // Valor inicial orçado
+  dataOrcamento         DateTime?           // Quando foi orçado
+  dataFechamento        DateTime?           // Quando fechou/perdeu
+  valorDesconto         Decimal?            // Desconto aplicado (valorOrcamento - valorVenda)
+  probabilidadeFecho    Int?                // % de probabilidade (0-100)
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  // Relacionamentos
+  company               Company             @relation(fields: [companyId], references: [id])
+  funnel                Funnel              @relation(fields: [funnelId], references: [id])
+  responsible           User?               @relation("LeadOwner", fields: [responsibleId], references: [id])
+  dentistUser           User?               @relation("LeadDentist", fields: [dentistaId], references: [id])
+  step                  FunnelStep          @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  notes                 LeadNote[]
+  reminders             Reminder[]
+  tasks                 Task[]
+}
+
+model LeadNote {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  leadId    String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model ReminderRule {
+  id        String     @id @default(uuid())
+  stepId    String
+  delayDays Int
+  step      FunnelStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id        String   @id @default(uuid())
+  leadId    String
+  userId    String
+  dueDate   DateTime
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+// Sistema de Tarefas Automáticas
+model StageTaskRule {
+  id             String    @id @default(uuid())
+  stepId         String    // FK para FunnelStep
+  name           String    // "Ligar para o lead"
+  description    String?   // Instruções detalhadas
+  order          Int       // Ordem na sequência (1, 2, 3...)
+  delayDays      Int       // Prazo em dias
+  delayType      DelayType @default(ABSOLUTE)
+  assignType     AssignType @default(LEAD_OWNER)
+  assignedUserId String?   // Se FIXED_USER
+  isActive       Boolean   @default(true)
+  companyId      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relacionamentos
+  step           FunnelStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  assignedUser   User?      @relation("TaskRuleAssignedUser", fields: [assignedUserId], references: [id])
+  company        Company    @relation(fields: [companyId], references: [id])
+  tasks          Task[]
+  
+  @@unique([stepId, order]) // Ordem única por etapa
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  leadId         String
+  ruleId         String     // Qual regra gerou esta tarefa
+  assignedId     String     // Usuário responsável
+  title          String
+  description    String?
+  dueDate        DateTime
+  status         TaskStatus @default(PENDING)
+  completedAt    DateTime?
+  completedBy    String?    // Quem marcou como concluída
+  notes          String?    // Observações na conclusão
+  companyId      String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  
+  // Relacionamentos
+  lead           Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  rule           StageTaskRule    @relation(fields: [ruleId], references: [id])
+  assigned       User             @relation("TaskAssigned", fields: [assignedId], references: [id])
+  completedByUser User?           @relation("TaskCompletedBy", fields: [completedBy], references: [id])
+  company        Company          @relation(fields: [companyId], references: [id])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  WORKER
+  DENTIST
+}
+
+enum UserSpecialty {
+  GENERAL
+  CLOSER_NEGOCIACAO
+  CLOSER_FOLLOW
+}
+
+// Enums para Sistema de Tarefas
+enum DelayType {
+  ABSOLUTE      // X dias após lead entrar na etapa
+  AFTER_PREVIOUS // X dias após tarefa anterior ser concluída
+}
+
+enum AssignType {
+  LEAD_OWNER    // Responsável atual do lead
+  FIXED_USER    // Usuário específico
+  ROUND_ROBIN   // Distribuição automática (futura implementação)
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum TipoProcura {
+  ORTODONTIA
+  IMPLANTE
+  ESTETICA
+  LIMPEZA
+  CANAL
+  EXTRACAO
+  PROTESE
+  CLAREAMENTO
+  OUTROS
+}
+
+enum MeioCaptacao {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  GOOGLE_ADS
+  INDICACAO
+  SITE
+  TELEFONE
+  PRESENCIAL
+  OUTROS
+}
+
+
+enum Dentista {
+  IANARA
+  DENTISTA_1
+  DENTISTA_2
+  DENTISTA_3
+  OUTROS
+}
+
+enum MotivoPerda {
+  PRECO
+  TEMPO
+  LOCALIZACAO
+  CONFIANCA
+  CONCORRENCIA
+  NAO_INTERESSADO
+  NAO_RESPONDEU
+  OUTROS
+}
+
+enum DentistaParticipou {
+  SIM
+  NAO
+}
+
+enum Objecao {
+  PRECO_ALTO
+  TEMPO_TRATAMENTO
+  DOR_MEDO
+  SEGUNDA_OPINIAO
+  PENSANDO
+  CONVERSAR_FAMILIA
+  CONDICOES_PAGAMENTO
+  OUTROS
+}
+
+// NOVOS ENUMS PARA ANALYTICS
+enum StatusVenda {
+  QUALIFICANDO          // Ainda conhecendo o lead
+  INTERESSE_DEMONSTRADO // Demonstrou interesse
+  CONSULTA_AGENDADA     // Marcou consulta
+  CONSULTA_REALIZADA    // Compareceu na consulta
+  ORCAMENTO_ENVIADO     // Recebeu proposta
+  NEGOCIACAO            // Discutindo preço/condições
+  GANHO                 // Fechou a venda
+  PERDIDO               // Perdeu a venda
+  PAUSADO               // Lead pausado temporariamente
+}
+
+enum TipoEtapa {
+  CAPTACAO              // Captação de leads
+  QUALIFICACAO          // Qualificação inicial
+  AGENDAMENTO           // Agendamento de consultas
+  ATENDIMENTO           // Consultas e atendimentos
+  ORCAMENTO             // Envio de orçamentos
+  NEGOCIACAO            // Negociação de preços
+  FECHAMENTO            // Fechamento da venda
+  POS_VENDA             // Pós-venda e fidelização
+}
+
+// ENUM PARA SISTEMA HÍBRIDO DE RELATÓRIOS UNIVERSAIS
+enum TipoEtapaConceitual {
+  CAPTACAO              // Geração inicial de leads (WhatsApp, Site, Indicação)
+  QUALIFICACAO          // Validação de interesse/necessidade (Triagem, Qualificação)
+  APRESENTACAO          // Consultas e avaliações (Primeira Consulta, Exames)
+  PROPOSTA              // Orçamentos e planos de tratamento (Orçamento, Plano)
+  NEGOCIACAO            // Discussão de valores/condições (Negociação, Aprovação)
+  FECHAMENTO            // Decisão final (Ganho/Perdido, Contrato, Agendamento)
+}
+
+// WhatsApp Models
+model WhatsAppConnection {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  status      WhatsAppStatus @default(DISCONNECTED)
+  companyId   String
+  sessionId   String?  // ID da sessão do VenomBot
+  qrCode      String?  // QR Code em base64
+  lastSeen    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  company     Company  @relation(fields: [companyId], references: [id])
+  chats       WhatsAppChat[]
+  messages    WhatsAppMessage[]
+}
+
+model WhatsAppChat {
+  id                    String   @id @default(uuid())
+  connectionId          String
+  contactId             String   // ID do contato no WhatsApp
+  contactName           String?
+  contactPhone          String
+  isGroup               Boolean  @default(false)
+  lastMessage           String?
+  lastMessageTime       DateTime?
+  unreadCount           Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relacionamentos
+  connection            WhatsAppConnection @relation(fields: [connectionId], references: [id])
+  messages              WhatsAppMessage[]
+}
+
+model WhatsAppMessage {
+  id            String   @id @default(uuid())
+  connectionId  String
+  chatId        String
+  messageId     String   // ID da mensagem no WhatsApp
+  content       String
+  type          MessageType @default(TEXT)
+  fromMe        Boolean  @default(false)
+  timestamp     DateTime
+  status        MessageStatus @default(SENT)
+  createdAt     DateTime @default(now())
+  
+  // Relacionamentos
+  connection    WhatsAppConnection @relation(fields: [connectionId], references: [id])
+  chat          WhatsAppChat       @relation(fields: [chatId], references: [id])
+}
+
+enum WhatsAppStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+  ERROR
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  LOCATION
+  CONTACT
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  ERROR
+}
