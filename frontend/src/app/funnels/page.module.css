@@ -1,0 +1,224 @@
+.alinhatitulo {
+  gap: 16px;
+  align-items: center;
+}
+
+.dropperson {
+  background: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 2px solid #E5E7EB;
+  width: 320px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dropperson:hover {
+  border-color: #6D67CC;
+  box-shadow: 0 4px 6px rgba(109, 103, 204, 0.1);
+}
+
+.btn-primaryperson {
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6D67CC 0%, #8B85E0 100%);
+  color: #fff;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(109, 103, 204, 0.25);
+}
+
+.btn-primaryperson:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(109, 103, 204, 0.35);
+  background: linear-gradient(135deg, #5B55B8 0%, #7D77CC 100%);
+}
+.dropfunil {
+  background: white;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.nomesfunisdropdown {
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.deletarfunil {
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.deletarfunil:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.etapasfunil {
+  gap: 8px;
+  align-items: center;
+}
+
+.linhasuperiorfunil {
+  border: none;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg, #F9FAFB 0%, #FFFFFF 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.titulofunilespaco {
+  margin-bottom: 32px;
+}
+.kanbanboard {
+  width: 280px;
+  background: #F9FAFB;
+  border-radius: 16px;
+  padding: 16px 12px;
+  min-height: 400px;
+}
+
+.kanbanboardsuperior {
+  display: flex;
+  gap: 24px;
+}
+
+.editarlead {
+  font-size: 20px;
+  border: none;
+  background: none;
+  color: #6B7280;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+.editarlead:hover {
+  background: #F3F4F6;
+  color: #6D67CC;
+}
+
+.telefonelead {
+  display: inline-block;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #6D67CC 0%, #8B85E0 100%);
+  color: white;
+  font: 600 13px / 1.2 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  white-space: nowrap;
+  font-weight: 600;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(109, 103, 204, 0.25);
+}
+.kanbanboardsinglepai {
+  background: white;
+  padding: 0;
+  border: none;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.kanbanboardsinglepai:hover {
+  box-shadow: 0 8px 20px rgba(109, 103, 204, 0.15);
+  border-color: #6D67CC;
+  transform: translateY(-2px);
+}
+
+.kanbanboardsinglefilho {
+  border: none;
+  padding: 16px;
+  border-radius: 0;
+}
+
+.nomelead {
+  color: #1F2937;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.datacalendariolead {
+  color: #9CA3AF;
+  font-size: 13px;
+  text-align: left;
+  width: 100%;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 12px;
+  padding-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adicionarlead {
+  text-align: left;
+  margin: 0 0 16px 0;
+}
+
+.adicionarleadbuttonfilho {
+  border: 2px dashed #D1D5DB;
+  cursor: pointer;
+  color: #6D67CC;
+  font-size: 13px;
+  font-weight: 600;
+  background: white;
+  border-radius: 10px;
+  padding: 10px 16px;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.adicionarleadbuttonfilho:hover {
+  border-color: #6D67CC;
+  background: #F9FAFB;
+  transform: translateY(-1px);
+}
+
+/* Scrollbar customizada para o kanban */
+.kanbanScroll {
+  scrollbar-width: thin;
+  scrollbar-color: #6D67CC #E5E7EB;
+}
+
+.kanbanScroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.kanbanScroll::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 10px;
+  margin: 0 2rem;
+}
+
+.kanbanScroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6D67CC 0%, #8B85E0 100%);
+  border-radius: 10px;
+  border: 2px solid #F3F4F6;
+}
+
+.kanbanScroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5B55B8 0%, #7D77CC 100%);
+}
