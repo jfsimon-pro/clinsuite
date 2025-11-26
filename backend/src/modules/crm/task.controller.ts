@@ -1,17 +1,19 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
   Query,
   UseGuards,
   Request,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -32,6 +34,8 @@ export class TaskController {
   constructor(
     private taskService: TaskService,
     private taskAutomationService: TaskAutomationService,
+    @InjectQueue('task-automation')
+    private readonly taskAutomationQueue: Queue,
   ) {}
 
   @Post()
@@ -131,14 +135,30 @@ export class TaskController {
     @Body() completeDto: CompleteTaskDto,
   ) {
     const completedTask = await this.taskService.completeTask(
-      id, 
-      req.user.id, 
-      req.user.companyId, 
+      id,
+      req.user.id,
+      req.user.companyId,
       completeDto
     );
 
-    // Triggerar criação da próxima tarefa na sequência
-    await this.taskAutomationService.onTaskCompleted(id, req.user.companyId);
+    // Enfileirar criação da próxima tarefa na sequência
+    await this.taskAutomationQueue.add(
+      'task-completed',
+      {
+        taskId: id,
+        companyId: req.user.companyId,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+        delay: 0,
+      },
+    );
 
     return completedTask;
   }

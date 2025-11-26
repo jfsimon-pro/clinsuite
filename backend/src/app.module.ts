@@ -11,6 +11,8 @@ import { CompaniesModule } from './modules/companies/companies.module';
 import { CompanyMiddleware } from './common/middleware/company.middleware';
 import { DecimalInterceptor } from './common/interceptors/decimal.interceptor';
 import configuration from './config/configuration';
+import { QueueModule } from './common/queues/queue.module';
+import { EventsModule } from './common/events/events.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import configuration from './config/configuration';
       load: [configuration],
     }),
     PrismaModule,
+    EventsModule,
+    QueueModule,
     AuthModule,
     CrmModule,
     WhatsAppModule,

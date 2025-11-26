@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TaskAutomationService } from './task-automation.service';
 import { FUNNEL_TEMPLATES, FunnelTemplate, FUNNEL_TEMPLATES_HIBRIDO } from './templates/funnel-templates';
+import { LeadCreatedEvent, LeadMovedToStepEvent } from '../../common/events/lead.events';
 // import { CreateLeadDto, UpdateLeadDto } from './dto/lead.dto';
 
 export interface CreateFunnelDto {
@@ -38,6 +40,7 @@ export class CrmService {
   constructor(
     private prisma: PrismaService,
     private taskAutomationService: TaskAutomationService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   // Garante que o funil padrão exista para a empresa
@@ -376,13 +379,11 @@ export class CrmService {
       },
     });
 
-    // Trigger task automation for new lead
-    try {
-      await this.taskAutomationService.onLeadMoveToStep(lead.id, lead.stepId, companyId);
-    } catch (error) {
-      console.error('Erro ao criar tarefas automáticas para lead:', error);
-      // Não falha a criação do lead se houver erro na automação
-    }
+    // Emitir evento de lead criado - será processado pela fila de tarefas
+    this.eventEmitter.emit(
+      'lead.created',
+      new LeadCreatedEvent(lead.id, lead.stepId, companyId, lead.responsibleId),
+    );
 
     return lead;
   }
@@ -615,14 +616,12 @@ export class CrmService {
       valorVenda: updatedLead.valorVenda,
     });
 
-    // Trigger task automation if step changed
+    // Emitir evento se a etapa foi alterada
     if (data.stepId && data.stepId !== lead.stepId) {
-      try {
-        await this.taskAutomationService.onLeadMoveToStep(id, data.stepId, companyId);
-      } catch (error) {
-        console.error('Erro ao criar tarefas automáticas para lead atualizado:', error);
-        // Não falha a atualização do lead se houver erro na automação
-      }
+      this.eventEmitter.emit(
+        'lead.movedToStep',
+        new LeadMovedToStepEvent(id, lead.stepId, data.stepId, companyId),
+      );
     }
 
     return updatedLead;
@@ -692,13 +691,11 @@ export class CrmService {
       },
     });
 
-    // Trigger task automation for moved lead
-    try {
-      await this.taskAutomationService.onLeadMoveToStep(leadId, stepId, companyId);
-    } catch (error) {
-      console.error('Erro ao criar tarefas automáticas para lead movido:', error);
-      // Não falha a movimentação do lead se houver erro na automação
-    }
+    // Emitir evento de lead movido - será processado pela fila de tarefas
+    this.eventEmitter.emit(
+      'lead.movedToStep',
+      new LeadMovedToStepEvent(leadId, lead.stepId, stepId, companyId),
+    );
 
     return updatedLead;
   }

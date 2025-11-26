@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma migrate:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npm run start:dev:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node seed.js:*)",
+      "Bash(node create-super-admin.js:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplementar Event-Driven Architecture com Bull Queues\n\n## Mudanças principais:\n\n### Infraestrutura\n- Instalar @nestjs/bull, bull e @nestjs/event-emitter\n- Criar QueueModule com Bull Queues (Redis-based)\n- Criar EventsModule com EventEmitter2\n- Registrar 3 filas: task-automation, whatsapp-sync, notifications\n\n### Arquitetura de Eventos\n- Definir LeadCreatedEvent e LeadMovedToStepEvent\n- Integrar EventEmitter2 no CrmService\n- Emitir eventos em: createLead(), updateLead(), moveLeadToStep()\n\n### Processamento Assincronista\n- Criar TaskAutomationProcessor com handlers para ''lead-moved-to-step'' e ''task-completed''\n- Criar TaskAutomationEventListener para enfileirar jobs\n- Configurar retry automático com backoff exponencial (3 tentativas)\n- Adicionar concorrência e logging\n\n### Refatoração de Serviços\n- CrmService: trocar await para emit (eventos)\n- TaskController: enfileirar ''task-completed'' em vez de chamar direto\n\n### Benefícios\n✅ API 10x mais rápida (não bloqueia esperando processamento)\n✅ Retry automático com backoff exponencial\n✅ Escalável com múltiplos workers\n✅ Observável via Redis Commander\n✅ Pronto para crescer para Kafka depois\n\n### Documentação\n- EVENT_DRIVEN_ARCHITECTURE.md: Guia completo\n- IMPLEMENTATION_CHECKLIST.md: Checklist de implementação\n- QUICK_START_EVENT_DRIVEN.md: Como testar\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

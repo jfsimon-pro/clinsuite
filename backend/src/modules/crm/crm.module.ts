@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bull';
 import { CrmController } from './crm.controller';
 import { LeadsController } from './leads.controller';
 import { StageTaskRuleController } from './stage-task-rule.controller';
@@ -11,9 +12,18 @@ import { TaskAutomationService } from './task-automation.service';
 import { AnalyticsService } from './analytics.service';
 import { AlertsService } from './alerts.service';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { TaskAutomationProcessor } from './processors/task-automation.processor';
+import { QueueModule } from '../../common/queues/queue.module';
+import { EventsModule } from '../../common/events/events.module';
+import { TaskAutomationEventListener } from './listeners/task-automation.listener';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    QueueModule,
+    EventsModule,
+    BullModule.registerQueue({ name: 'task-automation' }),
+  ],
   controllers: [
     CrmController,
     LeadsController,
@@ -27,7 +37,9 @@ import { PrismaModule } from '../../prisma/prisma.module';
     TaskService,
     TaskAutomationService,
     AnalyticsService,
-    AlertsService
+    AlertsService,
+    TaskAutomationProcessor,
+    TaskAutomationEventListener,
   ],
   exports: [
     CrmService,
