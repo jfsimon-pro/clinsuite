@@ -76,12 +76,4 @@ export class TaskAutomationProcessor {
     }
   }
 
-  /**
-   * Handler para failed jobs (retries excedidos)
-   */
-  @Process({ name: 'lead-moved-to-step', concurrency: 5 })
-  async handleFailedLeadMovedToStep(job: Job) {
-    // Este é um exemplo de como você pode configurar concorrência
-    // A implementação real do processamento está no @Process acima
-  }
 }
