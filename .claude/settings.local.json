@@ -4,7 +4,13 @@
       "Bash(git commit:*)",
       "Bash(redis-cli ping:*)",
       "Bash(redis-server:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(brew services:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/createuser:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)",
+      "Bash(test:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run seed:*)"
     ],
     "deny": [],
     "ask": []
