@@ -11,9 +11,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   // Ignore ESLint during build (for now - fix lint errors later)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
 
   // Ignore TypeScript errors during build (for testing only!)
   typescript: {
