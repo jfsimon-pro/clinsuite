@@ -17,22 +17,23 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('crm')
 @UseGuards(JwtAuthGuard)
 export class CrmController {
-  constructor(private readonly crmService: CrmService) {}
+  constructor(private readonly crmService: CrmService) { }
 
   // ===== FUNNEL ENDPOINTS =====
 
   @Post('funnels')
-  async createFunnel(@Body() data: { name: string }, @Request() req) {
+  async createFunnel(@Body() data: { name: string; unitId?: string }, @Request() req) {
     const createFunnelDto: CreateFunnelDto = {
       name: data.name,
       companyId: req.user.companyId,
+      unitId: data.unitId,
     };
     return this.crmService.createFunnel(createFunnelDto);
   }
 
   @Get('funnels')
-  async getFunnels(@Request() req) {
-    return this.crmService.getFunnels(req.user.companyId);
+  async getFunnels(@Request() req, @Query('unitId') unitId?: string) {
+    return this.crmService.getFunnels(req.user.companyId, unitId);
   }
 
   @Get('funnels/:id')

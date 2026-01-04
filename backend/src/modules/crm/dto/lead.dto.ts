@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDecimal, IsDateString, IsEnum, IsUUID, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsDecimal, IsDateString, IsEnum, IsUUID, IsInt, Min, Max, IsEmail } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum TipoProcura {
@@ -119,6 +119,10 @@ export class CreateLeadDto {
   responsibleId?: string;
 
   @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
   @IsUUID()
   dentistaId?: string;
 
@@ -225,6 +229,10 @@ export class UpdateLeadDto {
   @IsOptional()
   @IsUUID()
   responsibleId?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsOptional()
   @IsUUID()

@@ -34,4 +34,8 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(UserSpecialty)
   specialty?: UserSpecialty;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 } 

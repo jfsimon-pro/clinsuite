@@ -36,6 +36,7 @@ interface PerformanceEquipe {
 interface TeamPerformanceProps {
   className?: string;
   period?: string; // Período em dias (opcional, vem da página pai)
+  unitId?: string; // ID da unidade para filtrar (opcional)
 }
 
 const PerformanceCard = ({ user, rank }: { user: PerformanceUsuario; rank: number }) => {
@@ -83,7 +84,7 @@ const PerformanceCard = ({ user, rank }: { user: PerformanceUsuario; rank: numbe
       </div>
 
       {/* Métricas em grid */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
           <p className="text-xs text-blue-600 font-semibold uppercase mb-1">Leads</p>
           <p className="font-bold text-xl text-blue-700">
@@ -121,11 +122,10 @@ const PerformanceCard = ({ user, rank }: { user: PerformanceUsuario; rank: numbe
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
           <div
-            className={`h-3 rounded-full transition-all duration-500 ${
-              user.taxaConversao >= 30 ? 'bg-gradient-to-r from-green-400 to-green-600' :
+            className={`h-3 rounded-full transition-all duration-500 ${user.taxaConversao >= 30 ? 'bg-gradient-to-r from-green-400 to-green-600' :
               user.taxaConversao >= 15 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
-              'bg-gradient-to-r from-red-400 to-red-600'
-            }`}
+                'bg-gradient-to-r from-red-400 to-red-600'
+              }`}
             style={{ width: `${Math.min(user.taxaConversao, 100)}%` }}
           ></div>
         </div>
@@ -134,7 +134,7 @@ const PerformanceCard = ({ user, rank }: { user: PerformanceUsuario; rank: numbe
   );
 };
 
-export default function TeamPerformance({ className = '', period: externalPeriod }: TeamPerformanceProps) {
+export default function TeamPerformance({ className = '', period: externalPeriod, unitId }: TeamPerformanceProps) {
   const [data, setData] = useState<PerformanceEquipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [internalPeriod, setInternalPeriod] = useState('30');
@@ -150,10 +150,19 @@ export default function TeamPerformance({ className = '', period: externalPeriod
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - parseInt(activePeriod));
 
-        const response = await analyticsApi.getPerformanceEquipe({
+        const params: any = {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString()
-        });
+        };
+
+        // Incluir unitId se fornecido
+        if (unitId) {
+          params.unitId = unitId;
+        }
+
+        console.log('📊 TeamPerformance - Carregando com params:', params);
+
+        const response = await analyticsApi.getPerformanceEquipe(params);
 
         setData(response.data);
       } catch (error) {
@@ -164,7 +173,7 @@ export default function TeamPerformance({ className = '', period: externalPeriod
     };
 
     loadData();
-  }, [activePeriod]);
+  }, [activePeriod, unitId]);
 
   if (loading) {
     return (
@@ -206,8 +215,9 @@ export default function TeamPerformance({ className = '', period: externalPeriod
   return (
     <div className={className}>
       {/* Header com filtro próprio (apenas se não vier período externo) */}
+      {/* Header com filtro próprio (apenas se não vier período externo) */}
       {!externalPeriod && (
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 md:gap-0">
           <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
               <TrendingUp className="w-6 h-6 text-white" />
@@ -217,7 +227,7 @@ export default function TeamPerformance({ className = '', period: externalPeriod
           <select
             value={internalPeriod}
             onChange={(e) => setInternalPeriod(e.target.value)}
-            className="bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-purple-300 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 transition-all cursor-pointer shadow-sm"
+            className="w-full md:w-auto bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-purple-300 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 transition-all cursor-pointer shadow-sm"
           >
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
@@ -228,7 +238,7 @@ export default function TeamPerformance({ className = '', period: externalPeriod
 
       <div className="space-y-6">
         {/* Estatísticas gerais modernizadas */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-2xl p-5 border-2 border-green-200">
             <p className="text-sm font-medium text-green-600 uppercase tracking-wide mb-2">Receita Total</p>
             <p className="text-3xl font-bold text-green-700">
@@ -248,27 +258,34 @@ export default function TeamPerformance({ className = '', period: externalPeriod
         </div>
 
         {/* Destaque do melhor performer modernizado */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 rounded-2xl shadow-xl p-6 text-white">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
-          <div className="relative flex items-center justify-between">
-            <div>
-              <h4 className="font-bold text-lg flex items-center gap-2 mb-2">
-                <Crown className="w-6 h-6" />
-                Melhor Performer do Período
+        {/* Destaque do melhor performer modernizado */}
+        {/* Destaque do melhor performer modernizado */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 rounded-3xl shadow-xl p-6 md:p-10 text-white transition-all duration-300 hover:shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-20 -mt-20 transform rotate-12"></div>
+          <div className="relative flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
+            <div className="relative z-10 w-full md:w-auto flex-1">
+              <h4 className="font-bold text-lg md:text-xl flex items-center gap-2 mb-4 bg-white/20 w-fit px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10 shadow-sm">
+                <Crown className="w-5 h-5" />
+                <span>Melhor Performer</span>
               </h4>
-              <p className="text-2xl font-black">
+              <p className="text-4xl md:text-5xl font-black tracking-tight leading-tight mb-3 text-shadow-sm">
                 {data.melhorPerformer.userName}
               </p>
-              <p className="text-sm opacity-90 mt-1">
+              <p className="text-lg md:text-xl opacity-95 font-medium flex items-center gap-2">
+                <TrendingUp className="w-6 h-6" />
                 Liderando em {data.melhorPerformer.metrica}
               </p>
             </div>
-            <div className="text-6xl">🏆</div>
+
+            {/* Troféu em destaque */}
+            <div className="hidden md:block relative animate-float">
+              <div className="text-[6rem] md:text-9xl drop-shadow-2xl filter transform hover:scale-110 transition-transform duration-500 cursor-pointer">🏆</div>
+            </div>
           </div>
         </div>
 
         {/* Ranking da equipe */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {sortedUsers.map((user, index) => (
             <PerformanceCard
               key={user.userId}

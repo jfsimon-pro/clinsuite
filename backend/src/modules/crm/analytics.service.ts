@@ -16,7 +16,7 @@ import {
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getVendasMetrics(companyId: string, filtros?: DashboardFiltrosDto): Promise<VendasMetrics> {
     const now = new Date();
@@ -52,6 +52,7 @@ export class AnalyticsService {
         ],
         ...(filtros?.funnelId && { funnelId: filtros.funnelId }),
         ...(filtros?.responsibleId && { responsibleId: filtros.responsibleId }),
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
       },
       select: {
         valorVenda: true,
@@ -70,6 +71,7 @@ export class AnalyticsService {
           gte: previousStartDate,
           lte: previousEndDate,
         },
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
       },
       select: {
         valorVenda: true,
@@ -87,6 +89,7 @@ export class AnalyticsService {
         },
         ...(filtros?.funnelId && { funnelId: filtros.funnelId }),
         ...(filtros?.responsibleId && { responsibleId: filtros.responsibleId }),
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
       },
     });
 
@@ -96,6 +99,7 @@ export class AnalyticsService {
       where: {
         companyId,
         createdAt: { gte: inicioMes },
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
       },
     });
 
@@ -251,6 +255,7 @@ export class AnalyticsService {
           notIn: ['GANHO', 'PERDIDO'],
         },
         ...(filtros?.funnelId && { funnelId: filtros.funnelId }),
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
       },
       include: {
         step: true,
@@ -305,13 +310,16 @@ export class AnalyticsService {
     };
   }
 
-  async getPerformanceEquipe(companyId: string, filtros?: DateRangeDto): Promise<PerformanceEquipe> {
+  async getPerformanceEquipe(companyId: string, filtros?: DashboardFiltrosDto): Promise<PerformanceEquipe> {
     const startDate = filtros?.startDate ? new Date(filtros.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = filtros?.endDate ? new Date(filtros.endDate) : new Date();
 
-    // Buscar todos os usuários da empresa
+    // Buscar usuários da empresa (filtrados por unidade se fornecida)
     const usuarios = await this.prisma.user.findMany({
-      where: { companyId },
+      where: {
+        companyId,
+        ...(filtros?.unitId && { unitId: filtros.unitId }),
+      },
       select: {
         id: true,
         name: true,
@@ -321,6 +329,7 @@ export class AnalyticsService {
               gte: startDate,
               lte: endDate,
             },
+            ...(filtros?.unitId && { unitId: filtros.unitId }),
           },
           select: {
             id: true,
@@ -375,9 +384,11 @@ export class AnalyticsService {
       : 0;
 
     // Melhor performer por receita
-    const melhorPerformer = performanceUsuarios.reduce((best, current) =>
-      current.receitaGerada > best.receitaGerada ? current : best
-    );
+    const melhorPerformer = performanceUsuarios.length > 0
+      ? performanceUsuarios.reduce((best, current) =>
+        current.receitaGerada > best.receitaGerada ? current : best
+      )
+      : { userId: '', userName: 'N/A', receitaGerada: 0 };
 
     return {
       periodo: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
@@ -720,6 +731,152 @@ export class AnalyticsService {
           ? Math.round(etapasConceituais.reduce((sum, etapa) => sum + etapa.tempoMedio, 0) / etapasConceituais.length * 10) / 10
           : 0,
       }
+    };
+  }
+
+  // NOVO MÉTODO: Métricas de No-Show (Não Comparecimento)
+  // Usa a tabela Consulta e o campo 'compareceu' para dados precisos
+  async getNoShowMetrics(companyId: string, filtros?: DashboardFiltrosDto): Promise<{
+    taxaNoShow: number;
+    totalConsultasAgendadas: number;
+    consultasRealizadas: number;
+    consultasNaoComparecidas: number;
+    noShowPorDentista: Array<{
+      dentistaId: string;
+      dentistaNome: string;
+      total: number;
+      noShow: number;
+      taxa: number;
+    }>;
+    noShowPorDiaSemana: Array<{
+      dia: string;
+      total: number;
+      noShow: number;
+      taxa: number;
+    }>;
+    tendenciaNoShow: Array<{
+      mes: string;
+      taxa: number;
+    }>;
+  }> {
+    const now = new Date();
+    const startDate = filtros?.startDate ? new Date(filtros.startDate) : new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const endDate = filtros?.endDate ? new Date(filtros.endDate) : now;
+
+    // Buscar consultas da tabela Consulta (registros reais de atendimento)
+    const consultas = await this.prisma.consulta.findMany({
+      where: {
+        dataConsulta: {
+          gte: startDate,
+          lte: endDate,
+        },
+        lead: {
+          companyId,
+          ...(filtros?.unitId && { unitId: filtros.unitId }),
+        },
+      },
+      include: {
+        dentista: {
+          select: { id: true, name: true }
+        },
+        lead: {
+          select: { id: true, name: true, phone: true }
+        }
+      }
+    });
+
+    // Calcular métricas baseadas no campo 'compareceu'
+    const consultasPassadas = consultas.filter(c => new Date(c.dataConsulta) < now);
+    const noShows = consultasPassadas.filter(c => c.compareceu === false);
+
+    const totalConsultasAgendadas = consultasPassadas.length;
+    const consultasNaoComparecidas = noShows.length;
+    const consultasRealizadas = totalConsultasAgendadas - consultasNaoComparecidas;
+    const taxaNoShow = totalConsultasAgendadas > 0 ? (consultasNaoComparecidas / totalConsultasAgendadas) * 100 : 0;
+
+    // No-Show por dentista
+    const dentistasMap = new Map<string, { nome: string; total: number; noShow: number }>();
+    consultasPassadas.forEach(consulta => {
+      const dentistaId = consulta.dentistaId;
+      const dentistaNome = consulta.dentista?.name || 'Não atribuído';
+
+      if (!dentistasMap.has(dentistaId)) {
+        dentistasMap.set(dentistaId, { nome: dentistaNome, total: 0, noShow: 0 });
+      }
+
+      const entry = dentistasMap.get(dentistaId)!;
+      entry.total += 1;
+      if (consulta.compareceu === false) {
+        entry.noShow += 1;
+      }
+    });
+
+    const noShowPorDentista = Array.from(dentistasMap.entries()).map(([dentistaId, data]) => ({
+      dentistaId,
+      dentistaNome: data.nome,
+      total: data.total,
+      noShow: data.noShow,
+      taxa: data.total > 0 ? Math.round((data.noShow / data.total) * 1000) / 10 : 0
+    })).sort((a, b) => b.taxa - a.taxa);
+
+    // No-Show por dia da semana
+    const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const diasMap = new Map<number, { total: number; noShow: number }>();
+
+    for (let i = 0; i < 7; i++) {
+      diasMap.set(i, { total: 0, noShow: 0 });
+    }
+
+    consultasPassadas.forEach(consulta => {
+      const dia = new Date(consulta.dataConsulta).getDay();
+      const entry = diasMap.get(dia)!;
+      entry.total += 1;
+      if (consulta.compareceu === false) {
+        entry.noShow += 1;
+      }
+    });
+
+    const noShowPorDiaSemana = Array.from(diasMap.entries()).map(([dia, data]) => ({
+      dia: diasSemana[dia],
+      total: data.total,
+      noShow: data.noShow,
+      taxa: data.total > 0 ? Math.round((data.noShow / data.total) * 1000) / 10 : 0
+    }));
+
+    // Tendência mensal (últimos 6 meses)
+    const meses = new Map<string, { total: number; noShow: number }>();
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      meses.set(key, { total: 0, noShow: 0 });
+    }
+
+    consultasPassadas.forEach(consulta => {
+      const date = new Date(consulta.dataConsulta);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const entry = meses.get(key);
+      if (entry) {
+        entry.total += 1;
+        if (consulta.compareceu === false) {
+          entry.noShow += 1;
+        }
+      }
+    });
+
+    const tendenciaNoShow = Array.from(meses.entries()).map(([mes, data]) => ({
+      mes,
+      taxa: data.total > 0 ? Math.round((data.noShow / data.total) * 1000) / 10 : 0
+    }));
+
+    return {
+      taxaNoShow: Math.round(taxaNoShow * 10) / 10,
+      totalConsultasAgendadas,
+      consultasRealizadas,
+      consultasNaoComparecidas,
+      noShowPorDentista,
+      noShowPorDiaSemana,
+      tendenciaNoShow
     };
   }
 }

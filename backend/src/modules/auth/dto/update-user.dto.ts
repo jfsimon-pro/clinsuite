@@ -25,4 +25,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(UserSpecialty)
   specialty?: UserSpecialty;
+
+  @IsOptional()
+  @IsString()
+  unitId?: string;
 }

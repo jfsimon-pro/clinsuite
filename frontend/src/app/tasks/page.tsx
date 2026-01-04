@@ -92,10 +92,10 @@ export default function TasksPage() {
         api.get('/crm/funnels'),
         api.get('/auth/users')
       ]);
-      
+
       setFunnels(funnelsRes.data);
       setUsers(usersRes.data || []);
-      
+
       if (funnelsRes.data.length > 0) {
         setSelectedFunnel(funnelsRes.data[0].id);
         if (funnelsRes.data[0].steps.length > 0) {
@@ -111,7 +111,7 @@ export default function TasksPage() {
 
   const loadTaskRules = async () => {
     if (!selectedStep) return;
-    
+
     try {
       const response = await api.get(`/crm/task-rules/step/${selectedStep}`);
       setTaskRules(response.data);
@@ -122,12 +122,12 @@ export default function TasksPage() {
 
   const handleCreateTaskRule = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedStep) return;
 
     try {
       const nextOrder = Math.max(0, ...taskRules.map(rule => rule.order)) + 1;
-      
+
       await api.post('/crm/task-rules', {
         ...formData,
         stepId: selectedStep,
@@ -236,7 +236,7 @@ export default function TasksPage() {
   const selectedFunnelData = funnels.find(f => f.id === selectedFunnel);
 
   return (
-    <div id="tasks-page-container" className="p-8">
+    <div id="tasks-page-container" className="p-4 md:p-8">
       <div id="page-header" className="mb-8">
         <h1 id="page-title" className="text-3xl font-bold text-gray-900 mb-2">
           Configurar Tarefas Automáticas
@@ -247,7 +247,7 @@ export default function TasksPage() {
       </div>
 
       {/* Seletores */}
-      <div id="selectors-card" className="bg-white rounded-lg shadow p-6 mb-6">
+      <div id="selectors-card" className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
         <h2 id="selectors-title" className="text-xl font-semibold mb-4">Selecione o funil e etapa</h2>
 
         <div id="selectors-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -297,8 +297,8 @@ export default function TasksPage() {
 
       {/* Lista de Regras */}
       <div id="task-rules-card" className="bg-white rounded-lg shadow">
-        <div id="task-rules-header" className="px-6 py-4 border-b border-gray-200">
-          <div id="task-rules-header-content" className="flex items-center justify-between">
+        <div id="task-rules-header" className="px-4 py-4 md:px-6 border-b border-gray-200">
+          <div id="task-rules-header-content" className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div id="task-rules-header-info">
               <h2 id="task-rules-title" className="text-xl font-semibold text-gray-900">
                 Tarefas Configuradas
@@ -310,14 +310,14 @@ export default function TasksPage() {
             <button
               id="create-task-btn"
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="w-full md:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
             >
               + Nova Tarefa
             </button>
           </div>
         </div>
 
-        <div id="task-rules-content" className="p-6">
+        <div id="task-rules-content" className="p-4 md:p-6">
           {taskRules.length === 0 ? (
             <div id="task-rules-empty-state" className="text-center py-8">
               <p id="empty-state-message" className="text-gray-500 mb-4">Nenhuma tarefa configurada para esta etapa.</p>
@@ -335,13 +335,12 @@ export default function TasksPage() {
                 <div
                   key={rule.id}
                   id={`task-rule-${rule.id}`}
-                  className={`border rounded-lg p-4 ${
-                    rule.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                  }`}
+                  className={`border rounded-lg p-4 ${rule.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                    }`}
                 >
-                  <div id={`task-rule-content-${rule.id}`} className="flex items-start justify-between">
-                    <div id={`task-rule-info-${rule.id}`} className="flex-1">
-                      <div id={`task-rule-header-${rule.id}`} className="flex items-center space-x-2 mb-2">
+                  <div id={`task-rule-content-${rule.id}`} className="flex flex-col md:flex-row items-start justify-between gap-4">
+                    <div id={`task-rule-info-${rule.id}`} className="flex-1 w-full">
+                      <div id={`task-rule-header-${rule.id}`} className="flex flex-wrap items-center gap-2 mb-2">
                         <span id={`task-rule-order-${rule.id}`} className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
                           #{rule.order}
                         </span>
@@ -350,11 +349,10 @@ export default function TasksPage() {
                         </h3>
                         <span
                           id={`task-rule-status-${rule.id}`}
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            rule.isActive
+                          className={`text-xs px-2 py-1 rounded-full ${rule.isActive
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-600'
-                          }`}
+                            }`}
                         >
                           {rule.isActive ? 'Ativa' : 'Inativa'}
                         </span>
@@ -364,7 +362,7 @@ export default function TasksPage() {
                         <p id={`task-rule-description-${rule.id}`} className="text-gray-600 mb-2">{rule.description}</p>
                       )}
 
-                      <div id={`task-rule-metadata-${rule.id}`} className="text-sm text-gray-500 space-x-4">
+                      <div id={`task-rule-metadata-${rule.id}`} className="text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-2">
                         <span id={`task-rule-delay-${rule.id}`}>Prazo: {rule.delayDays} dia(s)</span>
                         <span id={`task-rule-type-${rule.id}`}>
                           Tipo: {rule.delayType === 'ABSOLUTE' ? 'Após entrada na etapa' : 'Após tarefa anterior'}
@@ -372,37 +370,36 @@ export default function TasksPage() {
                         <span id={`task-rule-assign-${rule.id}`}>
                           Atribuição: {
                             rule.assignType === 'LEAD_OWNER' ? 'Responsável do lead' :
-                            rule.assignType === 'FIXED_USER' ? rule.assignedUser?.name || 'Usuário fixo' :
-                            'Distribuição automática'
+                              rule.assignType === 'FIXED_USER' ? rule.assignedUser?.name || 'Usuário fixo' :
+                                'Distribuição automática'
                           }
                         </span>
                         <span id={`task-rule-executions-${rule.id}`}>Execuções: {rule.tasks.length}</span>
                       </div>
                     </div>
 
-                    <div id={`task-rule-actions-${rule.id}`} className="flex items-center space-x-2">
+                    <div id={`task-rule-actions-${rule.id}`} className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                       <button
                         id={`task-rule-edit-${rule.id}`}
                         onClick={() => openEditModal(rule)}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200"
+                        className="flex-1 md:flex-none px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200 text-center"
                       >
                         Editar
                       </button>
                       <button
                         id={`task-rule-toggle-${rule.id}`}
                         onClick={() => toggleRuleActive(rule.id, rule.isActive)}
-                        className={`px-3 py-1 rounded text-sm ${
-                          rule.isActive
+                        className={`flex-1 md:flex-none px-3 py-1 rounded text-sm text-center ${rule.isActive
                             ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                             : 'bg-green-100 text-green-800 hover:bg-green-200'
-                        }`}
+                          }`}
                       >
                         {rule.isActive ? 'Pausar' : 'Ativar'}
                       </button>
                       <button
                         id={`task-rule-delete-${rule.id}`}
                         onClick={() => deleteRule(rule.id)}
-                        className="px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
+                        className="flex-1 md:flex-none px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200 text-center"
                       >
                         Excluir
                       </button>
@@ -417,8 +414,8 @@ export default function TasksPage() {
 
       {/* Modal de Criação */}
       {showCreateModal && (
-        <div id="create-modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div id="create-modal-container" className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+        <div id="create-modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div id="create-modal-container" className="bg-white rounded-lg p-6 w-[95%] md:w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
             <div id="create-modal-header" className="flex items-center justify-between mb-4">
               <h3 id="create-modal-title" className="text-lg font-semibold">Nova Tarefa Automática</h3>
               <button
@@ -554,8 +551,8 @@ export default function TasksPage() {
 
       {/* Modal de Edição */}
       {showEditModal && editingRule && (
-        <div id="edit-modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div id="edit-modal-container" className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+        <div id="edit-modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div id="edit-modal-container" className="bg-white rounded-lg p-6 w-[95%] md:w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
             <div id="edit-modal-header" className="flex items-center justify-between mb-4">
               <h3 id="edit-modal-title" className="text-lg font-semibold">Editar Tarefa Automática</h3>
               <button

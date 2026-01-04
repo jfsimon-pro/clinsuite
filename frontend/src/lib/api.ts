@@ -45,52 +45,52 @@ api.interceptors.response.use(
 export const authApi = {
   login: (credentials: { email: string; password: string }) =>
     api.post('/auth/login', credentials),
-  
+
   register: (userData: { email: string; password: string; name: string }) =>
     api.post('/auth/register', userData),
-  
+
   refresh: () => api.post('/auth/refresh'),
-  
+
   getUsers: () => api.get('/auth/users'),
 };
 
 export const crmApi = {
   // Funis
-  getFunnels: () => api.get('/crm/funnels'),
+  getFunnels: (unitId?: string) => api.get('/crm/funnels', { params: unitId ? { unitId } : {} }),
   createFunnel: (data: { name: string }) => api.post('/crm/funnels', data),
   updateFunnel: (id: string, data: { name: string }) => api.put(`/crm/funnels/${id}`, data),
   deleteFunnel: (id: string) => api.delete(`/crm/funnels/${id}`),
-  
+
   // Etapas
   createStep: (funnelId: string, data: { name: string }) =>
     api.post(`/crm/funnels/${funnelId}/steps`, data),
   updateStep: (id: string, data: { name: string }) => api.put(`/crm/steps/${id}`, data),
   deleteStep: (id: string) => api.delete(`/crm/steps/${id}`),
-  
+
   // Leads
   getLeads: (filters?: any) => api.get('/crm/leads', { params: filters }),
   createLead: (data: any) => api.post('/crm/leads', data),
   updateLead: (id: string, data: any) => api.put(`/crm/leads/${id}`, data),
   deleteLead: (id: string) => api.delete(`/crm/leads/${id}`),
   moveLead: (id: string, stepId: string) => api.put(`/crm/leads/${id}/move`, { stepId }),
-  
+
   // Regras de Tarefas
-  getTaskRules: (stepId?: string) => 
+  getTaskRules: (stepId?: string) =>
     stepId ? api.get(`/crm/task-rules/step/${stepId}`) : api.get('/crm/task-rules'),
   createTaskRule: (data: any) => api.post('/crm/task-rules', data),
   updateTaskRule: (id: string, data: any) => api.put(`/crm/task-rules/${id}`, data),
   deleteTaskRule: (id: string) => api.delete(`/crm/task-rules/${id}`),
-  toggleTaskRule: (id: string, active: boolean) => 
+  toggleTaskRule: (id: string, active: boolean) =>
     api.put(`/crm/task-rules/${id}/toggle?active=${active}`),
   reorderTaskRules: (stepId: string, ruleIds: string[]) =>
     api.put(`/crm/task-rules/step/${stepId}/reorder`, { ruleIds }),
   duplicateTaskRules: (fromStepId: string, toStepId: string) =>
     api.post(`/crm/task-rules/step/${fromStepId}/duplicate`, { toStepId }),
   getTaskRuleStats: () => api.get('/crm/task-rules/stats'),
-  
+
   // Tarefas
   getTasks: (filters?: any) => api.get('/crm/tasks', { params: filters }),
-  getMyTasks: (status?: string) => 
+  getMyTasks: (status?: string) =>
     api.get('/crm/tasks/my-tasks', status ? { params: { status } } : undefined),
   getUpcomingTasks: (days?: number) =>
     api.get('/crm/tasks/my-tasks/upcoming', days ? { params: { days } } : undefined),
@@ -100,7 +100,7 @@ export const crmApi = {
   createTask: (data: any) => api.post('/crm/tasks', data),
   updateTask: (id: string, data: any) => api.put(`/crm/tasks/${id}`, data),
   deleteTask: (id: string) => api.delete(`/crm/tasks/${id}`),
-  completeTask: (id: string, notes?: string) => 
+  completeTask: (id: string, notes?: string) =>
     api.post(`/crm/tasks/${id}/complete`, notes ? { notes } : {}),
   generateTasks: (leadId: string, stepId: string) =>
     api.post('/crm/tasks/generate', { leadId, stepId }),
@@ -151,11 +151,22 @@ export const analyticsApi = {
 
   // Alertas inteligentes
   getAlerts: () => api.get('/analytics/alerts'),
-  getAlertsSummary: () => api.get('/analytics/alerts/summary'),
+  getAlertsSummary: (filtros?: any) => api.get('/analytics/alerts/summary', { params: filtros }),
+
+  // Métricas de No-Show
+  getNoShow: (filtros?: any) => api.get('/analytics/no-show', { params: filtros }),
 
   // Templates de funil
   getFunnelTemplates: () => api.get('/funnel-templates'), // Endpoint público
   installFunnelTemplates: () => api.post('/crm/templates/install'),
+};
+
+export const unitsApi = {
+  getUnits: () => api.get('/units'),
+  getUnit: (id: string) => api.get(`/units/${id}`),
+  createUnit: (data: any) => api.post('/units', data),
+  updateUnit: (id: string, data: any) => api.patch(`/units/${id}`, data),
+  deleteUnit: (id: string) => api.delete(`/units/${id}`),
 };
 
 export const whatsappApi = {

@@ -52,6 +52,22 @@ async function main() {
 
   console.log('✅ Worker criado:', worker.email);
 
+  // Criar usuário dentista
+  const dentistPassword = await bcrypt.hash('dentista123', 10);
+  const dentist = await prisma.user.upsert({
+    where: { email: 'dentista@ianara.com' },
+    update: {},
+    create: {
+      email: 'dentista@ianara.com',
+      password: dentistPassword,
+      name: 'Dr. Dentista',
+      role: 'DENTIST',
+      companyId: company.id,
+    },
+  });
+
+  console.log('✅ Dentista criado:', dentist.email);
+
   // Criar funil de exemplo
   const funnel = await prisma.funnel.upsert({
     where: { id: 'funnel-seed-id' },
@@ -252,6 +268,7 @@ async function main() {
   console.log('📋 Credenciais de teste:');
   console.log('👤 Admin: admin@ianara.com / admin123');
   console.log('👷 Worker: worker@ianara.com / worker123');
+  console.log('🦷 Dentista: dentista@ianara.com / dentista123');
   console.log('');
   console.log('📊 Dados criados:');
   console.log(`📁 ${steps.length} etapas no funil`);

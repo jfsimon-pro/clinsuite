@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -75,7 +76,7 @@ interface UpdateLeadDto {
 @Controller('crm/leads')
 @UseGuards(JwtAuthGuard)
 export class LeadsController {
-  constructor(private readonly crmService: CrmService) {}
+  constructor(private readonly crmService: CrmService) { }
 
   @Post()
   async createLead(@Body() data: CreateLeadDto, @Request() req) {
@@ -127,5 +128,23 @@ export class LeadsController {
     @Request() req,
   ) {
     return this.crmService.moveLeadToStep(id, data.stepId, req.user.companyId);
+  }
+
+  @Patch(':id/anamnesis')
+  async updateAnamnesis(
+    @Param('id') id: string,
+    @Body() anamnesisData: any,
+    @Request() req,
+  ) {
+    return this.crmService.updateAnamnesis(id, anamnesisData, req.user.companyId);
+  }
+
+  @Patch(':id/personal-data')
+  async updatePersonalData(
+    @Param('id') id: string,
+    @Body() personalData: any,
+    @Request() req,
+  ) {
+    return this.crmService.updatePersonalData(id, personalData, req.user.companyId);
   }
 }

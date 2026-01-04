@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { useUnit } from '@/context/UnitContext';
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { api, unitsApi } from '@/lib/api';
 
 interface User {
   id: string;
@@ -30,17 +31,31 @@ export default function ColaboradoresPage() {
     password: '',
     role: 'WORKER' as 'WORKER' | 'ADMIN' | 'DENTIST',
     specialty: 'GENERAL' as 'GENERAL' | 'CLOSER_NEGOCIACAO' | 'CLOSER_FOLLOW',
+    unitId: '',
   });
 
   const [editFormData, setEditFormData] = useState({
     name: '',
     role: 'WORKER' as 'WORKER' | 'ADMIN' | 'DENTIST',
     specialty: 'GENERAL' as 'GENERAL' | 'CLOSER_NEGOCIACAO' | 'CLOSER_FOLLOW',
+    unitId: '',
   });
+
+  const [units, setUnits] = useState<any[]>([]);
 
   useEffect(() => {
     loadColaboradores();
+    loadUnits();
   }, []);
+
+  const loadUnits = async () => {
+    try {
+      const response = await unitsApi.getUnits();
+      setUnits(response.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar unidades:', error);
+    }
+  };
 
   const loadColaboradores = async () => {
     try {
@@ -56,10 +71,10 @@ export default function ColaboradoresPage() {
 
   const handleCreateColaborador = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     console.log('Dados do usuário:', user);
     console.log('Company ID:', user?.company?.id);
-    
+
     if (!user?.company?.id) {
       alert('Erro: ID da empresa não encontrado');
       return;
@@ -68,10 +83,17 @@ export default function ColaboradoresPage() {
     setCreating(true);
 
     try {
-      await api.post('/auth/register', {
+      const payload: any = {
         ...formData,
         companyId: user.company.id,
-      });
+      };
+
+      // Só inclui unitId se foi selecionada uma unidade
+      if (formData.unitId) {
+        payload.unitId = formData.unitId;
+      }
+
+      await api.post('/auth/register', payload);
 
       // Reset form
       setFormData({
@@ -80,11 +102,12 @@ export default function ColaboradoresPage() {
         password: '',
         role: 'WORKER',
         specialty: 'GENERAL',
+        unitId: '',
       });
-      
+
       setShowCreateModal(false);
       loadColaboradores();
-      
+
       alert('Colaborador criado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao criar colaborador:', error);
@@ -143,12 +166,11 @@ export default function ColaboradoresPage() {
       CLOSER_NEGOCIACAO: 'bg-green-100 text-green-800',
       CLOSER_FOLLOW: 'bg-orange-100 text-orange-800',
     };
-    
+
     return (
       <span
-        className={`text-xs px-2 py-1 rounded-full font-medium ${
-          colors[specialty as keyof typeof colors] || 'bg-gray-100 text-gray-800'
-        }`}
+        className={`text-xs px-2 py-1 rounded-full font-medium ${colors[specialty as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+          }`}
       >
         {getSpecialtyLabel(specialty)}
       </span>
@@ -161,13 +183,14 @@ export default function ColaboradoresPage() {
       name: colaborador.name,
       role: colaborador.role,
       specialty: colaborador.specialty,
+      unitId: (colaborador as any).unitId || '',
     });
     setShowEditModal(true);
   };
 
   const handleUpdateColaborador = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!editingColaborador) return;
 
     setUpdating(true);
@@ -178,7 +201,7 @@ export default function ColaboradoresPage() {
       setShowEditModal(false);
       setEditingColaborador(null);
       loadColaboradores();
-      
+
       alert('Colaborador atualizado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao atualizar colaborador:', error);
@@ -232,21 +255,21 @@ export default function ColaboradoresPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Gerenciar Colaboradores
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 text-sm md:text-base">
           Adicione e gerencie os colaboradores da sua clínica odontológica.
         </p>
       </div>
 
       {/* Lista de Colaboradores */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="px-4 py-4 md:px-6 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-0">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
                 Colaboradores Cadastrados
               </h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -255,7 +278,7 @@ export default function ColaboradoresPage() {
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="w-full md:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
             >
               + Novo Colaborador
             </button>
@@ -281,36 +304,46 @@ export default function ColaboradoresPage() {
                   key={colaborador.id}
                   className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold">
-                          {colaborador.name.charAt(0).toUpperCase()}
+                  <div className="flex flex-col md:flex-row items-start justify-between gap-4 md:gap-0">
+                    <div className="flex-1 w-full">
+                      <div className="flex flex-col md:flex-row md:items-center md:space-x-3 mb-2 gap-2 md:gap-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold flex-shrink-0">
+                            {colaborador.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="md:hidden">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {colaborador.name}
+                            </h3>
+                            <p className="text-gray-600 text-sm truncate max-w-[200px]">{colaborador.email}</p>
+                          </div>
                         </div>
-                        <div>
+
+                        <div className="hidden md:block">
                           <h3 className="text-lg font-medium text-gray-900">
                             {colaborador.name}
                           </h3>
                           <p className="text-gray-600 text-sm">{colaborador.email}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
+
+                        <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
                           {getRoleBadge(colaborador.role)}
                           {getSpecialtyBadge(colaborador.specialty)}
                         </div>
                       </div>
-                      
-                      <div className="text-sm text-gray-500">
+
+                      <div className="text-sm text-gray-500 ml-0 md:ml-12">
                         <span>Cadastrado em: {new Date(colaborador.createdAt).toLocaleDateString('pt-BR')}</span>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-2">
+
+                    <div className="flex items-center space-x-2 ml-0 md:ml-4 self-end md:self-center w-full md:w-auto justify-end">
                       {colaborador.role === 'WORKER' && (
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                           Ativo
                         </span>
                       )}
-                      
+
                       {/* Botão de Editar */}
                       <button
                         onClick={() => handleEditColaborador(colaborador)}
@@ -318,7 +351,7 @@ export default function ColaboradoresPage() {
                       >
                         Editar
                       </button>
-                      
+
                       {/* Não permitir excluir a si mesmo */}
                       {colaborador.id !== user?.id && (
                         <button
@@ -352,7 +385,7 @@ export default function ColaboradoresPage() {
                 ✕
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateColaborador}>
               <div className="space-y-4">
                 <div>
@@ -419,8 +452,8 @@ export default function ColaboradoresPage() {
                     {formData.role === 'WORKER'
                       ? 'Acesso limitado a tarefas e funcionalidades básicas'
                       : formData.role === 'ADMIN'
-                      ? 'Acesso total ao sistema'
-                      : 'Acesso aos atendimentos e prontuários'}
+                        ? 'Acesso total ao sistema'
+                        : 'Acesso aos atendimentos e prontuários'}
                   </p>
                 </div>
 
@@ -439,11 +472,33 @@ export default function ColaboradoresPage() {
                     <option value="CLOSER_FOLLOW">Closer de Follow</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    {formData.specialty === 'GENERAL' 
-                      ? 'Colaborador para atividades gerais' 
+                    {formData.specialty === 'GENERAL'
+                      ? 'Colaborador para atividades gerais'
                       : formData.specialty === 'CLOSER_NEGOCIACAO'
-                      ? 'Especialista em fechar negociações' 
-                      : 'Especialista em acompanhamento de clientes'}
+                        ? 'Especialista em fechar negociações'
+                        : 'Especialista em acompanhamento de clientes'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unidade (Opcional)
+                  </label>
+                  <select
+                    value={formData.unitId}
+                    onChange={(e) => setFormData({ ...formData, unitId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={creating}
+                  >
+                    <option value="">Nenhuma unidade específica</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} {unit.code ? `(${unit.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecione a unidade principal de trabalho do colaborador
                   </p>
                 </div>
               </div>
@@ -484,7 +539,7 @@ export default function ColaboradoresPage() {
                 ✕
               </button>
             </div>
-            
+
             <form onSubmit={handleUpdateColaborador}>
               <div className="space-y-4">
                 <div>
@@ -520,8 +575,8 @@ export default function ColaboradoresPage() {
                     {editFormData.role === 'WORKER'
                       ? 'Acesso limitado a tarefas e funcionalidades básicas'
                       : editFormData.role === 'ADMIN'
-                      ? 'Acesso total ao sistema'
-                      : 'Acesso aos atendimentos e prontuários'}
+                        ? 'Acesso total ao sistema'
+                        : 'Acesso aos atendimentos e prontuários'}
                   </p>
                 </div>
 
@@ -540,11 +595,33 @@ export default function ColaboradoresPage() {
                     <option value="CLOSER_FOLLOW">Closer de Follow</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    {editFormData.specialty === 'GENERAL' 
-                      ? 'Colaborador para atividades gerais' 
+                    {editFormData.specialty === 'GENERAL'
+                      ? 'Colaborador para atividades gerais'
                       : editFormData.specialty === 'CLOSER_NEGOCIACAO'
-                      ? 'Especialista em fechar negociações' 
-                      : 'Especialista em acompanhamento de clientes'}
+                        ? 'Especialista em fechar negociações'
+                        : 'Especialista em acompanhamento de clientes'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unidade (Opcional)
+                  </label>
+                  <select
+                    value={editFormData.unitId}
+                    onChange={(e) => setEditFormData({ ...editFormData, unitId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={updating}
+                  >
+                    <option value="">Nenhuma unidade específica</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} {unit.code ? `(${unit.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecione a unidade principal de trabalho do colaborador
                   </p>
                 </div>
               </div>

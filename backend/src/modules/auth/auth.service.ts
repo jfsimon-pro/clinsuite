@@ -13,7 +13,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
@@ -39,7 +39,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -89,6 +89,7 @@ export class AuthService {
         role: registerDto.role || 'WORKER',
         specialty: registerDto.specialty || 'GENERAL',
         companyId: registerDto.companyId,
+        ...(registerDto.unitId && { unitId: registerDto.unitId }),
       },
       include: {
         company: {
@@ -188,6 +189,7 @@ export class AuthService {
         name: true,
         role: true,
         specialty: true,
+        unitId: true,
         createdAt: true,
       },
       orderBy: {
@@ -279,6 +281,7 @@ export class AuthService {
         ...(updateUserDto.name && { name: updateUserDto.name }),
         ...(updateUserDto.role && { role: updateUserDto.role }),
         ...(updateUserDto.specialty && { specialty: updateUserDto.specialty }),
+        ...(updateUserDto.unitId !== undefined && { unitId: updateUserDto.unitId || null }),
       },
       select: {
         id: true,
@@ -286,6 +289,7 @@ export class AuthService {
         name: true,
         role: true,
         specialty: true,
+        unitId: true,
         createdAt: true,
       },
     });

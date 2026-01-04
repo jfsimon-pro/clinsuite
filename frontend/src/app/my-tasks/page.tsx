@@ -68,33 +68,33 @@ export default function MyTasksPage() {
   const getStatusColor = (status: string, dueDate: string) => {
     if (status === 'COMPLETED') return 'text-green-600 bg-green-50 border-green-200';
     if (status === 'CANCELLED') return 'text-gray-600 bg-gray-50 border-gray-200';
-    
+
     const now = new Date();
     const due = new Date(dueDate);
-    
+
     if (due < now) return 'text-red-600 bg-red-50 border-red-200'; // Atrasada
-    
+
     const diffHours = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (diffHours <= 24) return 'text-yellow-600 bg-yellow-50 border-yellow-200'; // Próximo do prazo
-    
+
     return 'text-blue-600 bg-blue-50 border-blue-200'; // Normal
   };
 
   const getStatusText = (status: string, dueDate: string) => {
     if (status === 'COMPLETED') return 'Concluída';
     if (status === 'CANCELLED') return 'Cancelada';
-    
+
     const now = new Date();
     const due = new Date(dueDate);
-    
+
     if (due < now) {
       const diffDays = Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
       return `Atrasada há ${diffDays} dia(s)`;
     }
-    
+
     const diffHours = Math.floor((due.getTime() - now.getTime()) / (1000 * 60 * 60));
     if (diffHours <= 24) return `Vence em ${diffHours}h`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     return `Vence em ${diffDays} dia(s)`;
   };
@@ -108,7 +108,7 @@ export default function MyTasksPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           📋 Minhas Tarefas
@@ -120,34 +120,31 @@ export default function MyTasksPage() {
 
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button
             onClick={() => setFilter('pending')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'pending'
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'pending'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             Pendentes
           </button>
           <button
             onClick={() => setFilter('completed')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'completed'
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'completed'
                 ? 'bg-green-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             Concluídas
           </button>
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'all'
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'all'
                 ? 'bg-gray-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             Todas
           </button>
@@ -190,7 +187,7 @@ export default function MyTasksPage() {
                   key={task.id}
                   className={`border rounded-lg p-4 ${getStatusColor(task.status, task.dueDate)}`}
                 >
-                  <div className="flex justify-between items-start mb-3">
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-3">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
                         {task.title}

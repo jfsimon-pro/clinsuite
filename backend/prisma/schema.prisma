@@ -15,12 +15,50 @@ model Company {
   primaryColor String?
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  units        Unit[]
   funnels      Funnel[]
   leads        Lead[]
   users        User[]
   whatsappConnections WhatsAppConnection[]
   taskRules    StageTaskRule[]
   tasks        Task[]
+  whatsappConfig WhatsAppConfig?
+  tags         Tag[]
+}
+
+model WhatsAppConfig {
+  id            String   @id @default(uuid())
+  companyId     String   @unique
+  phoneNumberId String
+  wabaId        String
+  accessToken   String   // Token permanente
+  verifyToken   String   // Token para webhook
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Unit {
+  id          String   @id @default(uuid())
+  name        String
+  code        String?
+  address     String?
+  phone       String?
+  email       String?
+  companyId   String
+  managerId   String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manager     User?    @relation("UnitManager", fields: [managerId], references: [id], onDelete: SetNull)
+  funnels     Funnel[]
+  leads       Lead[]
+  users       User[]   @relation("UnitUsers")
+
+  @@unique([companyId, code])
 }
 
 model User {
@@ -31,6 +69,7 @@ model User {
   role      Role
   specialty UserSpecialty @default(GENERAL)
   companyId String
+  unitId    String?
   createdAt DateTime      @default(now())
   leads     Lead[]        @relation("LeadOwner")
   dentistLeads Lead[]     @relation("LeadDentist")
@@ -39,15 +78,22 @@ model User {
   assignedTaskRules StageTaskRule[] @relation("TaskRuleAssignedUser")
   assignedTasks     Task[]          @relation("TaskAssigned")
   completedTasks    Task[]          @relation("TaskCompletedBy")
+  consultas         Consulta[]      @relation("ConsultaDentist")
+  documentosUpload  Documento[]     @relation("DocumentUploader")
+  prescricoes       Prescricao[]    @relation("PrescricaoDentist")
   company   Company       @relation(fields: [companyId], references: [id])
+  unit      Unit?         @relation("UnitUsers", fields: [unitId], references: [id], onDelete: SetNull)
+  managedUnits Unit[]     @relation("UnitManager")
 }
 
 model Funnel {
   id        String       @id @default(uuid())
   name      String
   companyId String
+  unitId    String?
   createdAt DateTime     @default(now())
   company   Company      @relation(fields: [companyId], references: [id])
+  unit      Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
   steps     FunnelStep[]
   leads     Lead[]
 }
@@ -81,6 +127,7 @@ model Lead {
   responsibleId         String?             // Opcional - pode não ter responsável inicialmente
   dentistaId            String?             // Opcional - dentista responsável pelo lead
   companyId             String
+  unitId                String?             // NOVO - unidade do lead
 
   // Campos de negócio
   valorVenda            Decimal?            // Valor da venda em R$
@@ -105,6 +152,29 @@ model Lead {
   valorDesconto         Decimal?            // Desconto aplicado (valorOrcamento - valorVenda)
   probabilidadeFecho    Int?                // % de probabilidade (0-100)
   
+  // DADOS PESSOAIS E CONTATO
+  email                 String?
+  cpf                   String?
+  dataNascimento        DateTime?
+  endereco              String?
+  cidade                String?
+  estado                String?
+  cep                   String?
+  contatoEmergencia     String?
+  nomeContatoEmergencia String?
+  
+  // ANAMNESE (História Médica) - armazenado como JSON para flexibilidade
+  anamnese              Json?               // { alergias: [], medicamentos: [], doencas: [], ... }
+  
+  // PORTAL DO PACIENTE - Autenticação
+  password              String?             // Hash da senha (bcrypt) - só pacientes têm
+  emailVerified         Boolean             @default(false) // Se o email foi verificado
+  verificationToken     String?             // Token de verificação de email
+  resetPasswordToken    String?             // Token para resetar senha
+  resetPasswordExpires  DateTime?           // Expiração do token de reset
+  lastLogin             DateTime?           // Último acesso ao portal
+  portalEnabled         Boolean             @default(false) // Se pode acessar o portal
+  
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   
@@ -114,9 +184,50 @@ model Lead {
   responsible           User?               @relation("LeadOwner", fields: [responsibleId], references: [id])
   dentistUser           User?               @relation("LeadDentist", fields: [dentistaId], references: [id])
   step                  FunnelStep          @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  unit                  Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   notes                 LeadNote[]
   reminders             Reminder[]
   tasks                 Task[]
+  consultas             Consulta[]
+  documentos            Documento[]
+  odontograma           Odontograma?
+  pagamentos            Pagamento[]
+  prescricoes           Prescricao[]
+  tags                  TagOnLead[]
+}
+
+// Sistema de Tags Inteligentes
+model Tag {
+  id          String      @id @default(uuid())
+  name        String      // Nome da tag (ex: "Implante", "Orçamento Alto", "Quente")
+  color       String      @default("#6366F1") // Cor hex para exibição
+  icon        String?     // Emoji ou ícone (ex: "🔥", "💰", "🦷")
+  description String?     // Descrição opcional
+  companyId   String
+  isSystem    Boolean     @default(false) // Tags padrão do sistema vs customizadas
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads       TagOnLead[]
+  
+  @@unique([companyId, name]) // Nome único por empresa
+}
+
+// Tabela de junção para relação many-to-many Lead <-> Tag
+model TagOnLead {
+  id        String   @id @default(uuid())
+  leadId    String
+  tagId     String
+  addedAt   DateTime @default(now())
+  addedBy   String?  // ID do usuário que adicionou a tag
+  
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([leadId, tagId]) // Evitar duplicatas
+  @@index([leadId])
+  @@index([tagId])
 }
 
 model LeadNote {
@@ -398,4 +509,107 @@ enum MessageStatus {
   DELIVERED
   READ
   ERROR
+}
+
+// ============================================
+// SISTEMA DE PRONTUÁRIO ODONTOLÓGICO
+// ============================================
+
+model Consulta {
+  id                String    @id @default(uuid())
+  leadId            String
+  dentistaId        String
+  dataConsulta      DateTime
+  duracao           Int       @default(60)
+  procedimentos     String[]  // Array de procedimentos realizados
+  dentesAtendidos   Int[]     // Números dos dentes (1-32)
+  anestesiaUsada    String?
+  materiaisUsados   String?
+  observacoes       String?
+  compareceu        Boolean   @default(true)
+  valorCobrado      Decimal?
+  proximaConsulta   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  lead              Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dentista          User      @relation("ConsultaDentist", fields: [dentistaId], references: [id])
+  prescricoes       Prescricao[]
+}
+
+model Documento {
+  id           String          @id @default(uuid())
+  leadId       String
+  tipo         TipoDocumento
+  categoria    String?         // "Intraoral", "Panorâmica", "Termo de Consentimento"
+  url          String
+  descricao    String?
+  uploadedBy   String
+  createdAt    DateTime        @default(now())
+  
+  lead         Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  uploader     User            @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+}
+
+model Odontograma {
+  id        String   @id @default(uuid())
+  leadId    String   @unique
+  dentes    Json     // { "1": { status: "CARIE", obs: "..." }, "2": { status: "HIGIDO" }, ... }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model Pagamento {
+  id              String            @id @default(uuid())
+  leadId          String
+  valor           Decimal
+  formaPagamento  FormaPagamento
+  dataVencimento  DateTime
+  dataPagamento   DateTime?
+  status          StatusPagamento   @default(PENDENTE)
+  numeroParcela   Int?
+  totalParcelas   Int?
+  observacoes     String?
+  createdAt       DateTime          @default(now())
+  
+  lead            Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model Prescricao {
+  id            String    @id @default(uuid())
+  consultaId    String
+  leadId        String
+  dentistaId    String
+  medicamentos  Json      // [{ nome, dose, frequencia, duracao, obs }]
+  observacoes   String?
+  createdAt     DateTime  @default(now())
+  
+  consulta      Consulta  @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+  lead          Lead      @relation(fields: [leadId], references: [id])
+  dentista      User      @relation("PrescricaoDentist", fields: [dentistaId], references: [id])
+}
+
+// Enums para Prontuário
+enum TipoDocumento {
+  FOTO
+  RAIO_X
+  PDF
+}
+
+enum FormaPagamento {
+  DINHEIRO
+  CARTAO_DEBITO
+  CARTAO_CREDITO
+  PIX
+  TRANSFERENCIA
+  PARCELADO
+}
+
+enum StatusPagamento {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
 }

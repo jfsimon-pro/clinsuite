@@ -9,6 +9,7 @@ import { LeadCreatedEvent, LeadMovedToStepEvent } from '../../common/events/lead
 export interface CreateFunnelDto {
   name: string;
   companyId: string;
+  unitId?: string;
 }
 
 export interface UpdateFunnelDto {
@@ -41,7 +42,7 @@ export class CrmService {
     private prisma: PrismaService,
     private taskAutomationService: TaskAutomationService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   // Garante que o funil padrão exista para a empresa
   private async ensureDefaultFunnel(companyId: string) {
@@ -81,6 +82,7 @@ export class CrmService {
       data: {
         name: data.name,
         companyId: data.companyId,
+        unitId: data.unitId || null,
       },
       include: {
         steps: {
@@ -93,10 +95,16 @@ export class CrmService {
     });
   }
 
-  async getFunnels(companyId: string) {
+  async getFunnels(companyId: string, unitId?: string) {
     await this.ensureDefaultFunnel(companyId);
+
+    const where: any = { companyId };
+    if (unitId) {
+      where.unitId = unitId;
+    }
+
     return this.prisma.funnel.findMany({
-      where: { companyId },
+      where,
       include: {
         steps: {
           orderBy: { order: 'asc' },
@@ -157,7 +165,7 @@ export class CrmService {
     if (funnel.name.toLowerCase() === DEFAULT_FUNNEL_NAME.toLowerCase()) {
       throw new BadRequestException('Não é possível deletar o funil padrão.');
     }
-    
+
     // Verifica se há leads no funil
     const leadCount = await this.prisma.lead.count({
       where: { funnelId: id },
@@ -359,13 +367,23 @@ export class CrmService {
       }
     }
 
+    console.log('🔍 DEBUG createLead - Dados recebidos:', JSON.stringify(data, null, 2));
+
+    // Herdar o unitId do funil automaticamente
+    const unitId = funnel.unitId || null;
+    console.log(`📍 Lead será criado na unidade: ${unitId || 'Nenhuma (herdado do funil)'}`);
+
     const lead = await this.prisma.lead.create({
       data: {
         ...data,
         companyId,
+        unitId, // Herda do funil automaticamente
         valorVenda: data.valorVenda ? Number(data.valorVenda) : null,
+        valorOrcamento: data.valorOrcamento ? Number(data.valorOrcamento) : null,
         dataConsulta: data.dataConsulta ? new Date(data.dataConsulta) : null,
+        duracaoConsulta: data.duracaoConsulta ? Number(data.duracaoConsulta) : null,
         previsaoFechamento: data.previsaoFechamento ? new Date(data.previsaoFechamento) : null,
+        dataFechamento: data.dataFechamento ? new Date(data.dataFechamento) : null,
       },
       include: {
         funnel: true,
@@ -390,16 +408,16 @@ export class CrmService {
 
   async getLeads(companyId: string, funnelId?: string, stepId?: string) {
     const where: any = { companyId };
-    
+
     if (funnelId) {
       where.funnelId = funnelId;
     }
-    
+
     if (stepId) {
       where.stepId = stepId;
     }
 
-    return this.prisma.lead.findMany({
+    const leads = await this.prisma.lead.findMany({
       where,
       include: {
         funnel: true,
@@ -407,12 +425,43 @@ export class CrmService {
         responsible: {
           select: { id: true, name: true, email: true },
         },
+        tags: {
+          include: {
+            tag: true
+          }
+        },
         _count: {
           select: { notes: true, reminders: true },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    if (leads.length > 0) {
+      console.log('🔍 DEBUG getLeads - Primeiro lead encontrado:', {
+        id: leads[0].id,
+        name: leads[0].name,
+        dataConsulta: leads[0].dataConsulta,
+        dentistaId: leads[0].dentistaId
+      });
+    }
+
+    // Converter datas para ISO strings para evitar problemas de serialização
+    const serializedLeads = leads.map(lead => ({
+      ...lead,
+      dataConsulta: lead.dataConsulta ? lead.dataConsulta.toISOString() : null,
+      previsaoFechamento: lead.previsaoFechamento ? lead.previsaoFechamento.toISOString() : null,
+      dataFechamento: lead.dataFechamento ? lead.dataFechamento.toISOString() : null,
+      dataOrcamento: lead.dataOrcamento ? lead.dataOrcamento.toISOString() : null,
+      createdAt: lead.createdAt.toISOString(),
+      updatedAt: lead.updatedAt.toISOString(),
+      funnel: lead.funnel ? {
+        ...lead.funnel,
+        createdAt: lead.funnel.createdAt.toISOString(),
+      } : null,
+    }));
+
+    return serializedLeads;
   }
 
   async getLead(id: string, companyId: string) {
@@ -476,13 +525,13 @@ export class CrmService {
     // Verificar se a etapa existe (se fornecida)
     if (data.stepId) {
       const step = await this.prisma.funnelStep.findFirst({
-        where: { 
-          id: data.stepId, 
-          funnel: { 
+        where: {
+          id: data.stepId,
+          funnel: {
             companyId,
             // Se funnelId foi fornecido, garantir que a etapa pertence a esse funil
             ...(data.funnelId && { id: data.funnelId })
-          } 
+          }
         },
       });
 
@@ -642,7 +691,8 @@ export class CrmService {
   }
 
   async getLeadsByDentist(userId: string, companyId: string) {
-    return this.prisma.lead.findMany({
+    console.log(`🔍 DEBUG getLeadsByDentist - Buscando leads para dentista ${userId} na empresa ${companyId}`);
+    const leads = await this.prisma.lead.findMany({
       where: {
         dentistaId: userId,
         companyId,
@@ -660,6 +710,20 @@ export class CrmService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    console.log(`✅ DEBUG getLeadsByDentist - Encontrados ${leads.length} leads`);
+
+    // Converter datas para ISO strings para evitar problemas de serialização
+    const serializedLeads = leads.map(lead => ({
+      ...lead,
+      dataConsulta: lead.dataConsulta ? lead.dataConsulta.toISOString() : null,
+      previsaoFechamento: lead.previsaoFechamento ? lead.previsaoFechamento.toISOString() : null,
+      dataFechamento: lead.dataFechamento ? lead.dataFechamento.toISOString() : null,
+      dataOrcamento: lead.dataOrcamento ? lead.dataOrcamento.toISOString() : null,
+      createdAt: lead.createdAt.toISOString(),
+      updatedAt: lead.updatedAt.toISOString(),
+    }));
+
+    return serializedLeads;
   }
 
   async moveLeadToStep(leadId: string, stepId: string, companyId: string) {
@@ -698,6 +762,58 @@ export class CrmService {
     );
 
     return updatedLead;
+  }
+
+  async updateAnamnesis(leadId: string, anamnesisData: any, companyId: string) {
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, companyId },
+    });
+
+    if (!lead) {
+      throw new NotFoundException('Paciente não encontrado');
+    }
+
+    return this.prisma.lead.update({
+      where: { id: leadId },
+      data: { anamnese: anamnesisData },
+    });
+  }
+
+  async updatePersonalData(leadId: string, personalData: any, companyId: string) {
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, companyId },
+    });
+
+    if (!lead) {
+      throw new NotFoundException('Paciente não encontrado');
+    }
+
+    const {
+      email,
+      cpf,
+      dataNascimento,
+      endereco,
+      cidade,
+      estado,
+      cep,
+      contatoEmergencia,
+      nomeContatoEmergencia,
+    } = personalData;
+
+    return this.prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        email,
+        cpf,
+        dataNascimento: dataNascimento ? new Date(dataNascimento) : null,
+        endereco,
+        cidade,
+        estado,
+        cep,
+        contatoEmergencia,
+        nomeContatoEmergencia,
+      },
+    });
   }
 
   // ===== TEMPLATE METHODS =====

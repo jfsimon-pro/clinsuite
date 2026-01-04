@@ -5,12 +5,14 @@ import { LeadsController } from './leads.controller';
 import { StageTaskRuleController } from './stage-task-rule.controller';
 import { TaskController } from './task.controller';
 import { AnalyticsController } from './analytics.controller';
+import { TagController } from './tag.controller';
 import { CrmService } from './crm.service';
 import { StageTaskRuleService } from './stage-task-rule.service';
 import { TaskService } from './task.service';
 import { TaskAutomationService } from './task-automation.service';
 import { AnalyticsService } from './analytics.service';
 import { AlertsService } from './alerts.service';
+import { TagService } from './tag.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { TaskAutomationProcessor } from './processors/task-automation.processor';
 import { QueueModule } from '../../common/queues/queue.module';
@@ -29,7 +31,8 @@ import { TaskAutomationEventListener } from './listeners/task-automation.listene
     LeadsController,
     StageTaskRuleController,
     TaskController,
-    AnalyticsController
+    AnalyticsController,
+    TagController
   ],
   providers: [
     CrmService,
@@ -38,6 +41,7 @@ import { TaskAutomationEventListener } from './listeners/task-automation.listene
     TaskAutomationService,
     AnalyticsService,
     AlertsService,
+    TagService,
     TaskAutomationProcessor,
     TaskAutomationEventListener,
   ],
@@ -47,7 +51,8 @@ import { TaskAutomationEventListener } from './listeners/task-automation.listene
     TaskService,
     TaskAutomationService,
     AnalyticsService,
-    AlertsService
+    AlertsService,
+    TagService
   ],
 })
-export class CrmModule {} 
+export class CrmModule { }  

@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useUnit } from '@/context/UnitContext';
 import TaskIndicator from '@/components/TaskIndicator';
 import LeadDetailPanel from '@/components/LeadDetailPanel';
+import CreateLeadModal from '@/components/CreateLeadModal';
 import styles from './page.module.css';
 import { ScrollMenu, VisibilityContext } from 'react-horizontal-scrolling-menu';
 import 'react-horizontal-scrolling-menu/dist/styles.css';
@@ -36,11 +38,13 @@ interface Lead {
   valorVenda?: number;
   valorOrcamento?: number;
   dataConsulta?: string;
+  duracaoConsulta?: number;
   tipoProcura?: string;
   meioCaptacao?: string;
   closerNegociacao?: string;
   closerFollow?: string;
   dentista?: string;
+  dentistaId?: string;
   motivoPerda?: string;
   dentistaParticipou?: string;
   previsaoFechamento?: string;
@@ -54,6 +58,14 @@ interface Lead {
   stepId: string;
   responsibleId?: string;
   companyId: string;
+  tags?: Array<{
+    tag: {
+      id: string;
+      name: string;
+      color: string;
+      icon?: string;
+    }
+  }>;
 }
 
 // Componente para cada etapa do kanban
@@ -64,14 +76,7 @@ function KanbanStep({ step, funnelLeads, user, selectedFunnel, setSelectedStep, 
   return (
     <div
       id={`kanban-step-${step.id}`}
-      className={`rounded-lg p-4 bg-transparent`}
-      style={{
-        minWidth: '320px',
-        width: '320px',
-        flexShrink: 0,
-        flexGrow: 0,
-        flexBasis: '320px'
-      }}
+      className={`rounded-lg p-4 bg-transparent ${styles.kanbanStep}`}
     >
       <div id={`step-header-${step.id}`} className={`flex items-center justify-between mb-3`}>
         <div id={`step-title-${step.id}`} className={`flex items-center gap-2`}>
@@ -82,6 +87,7 @@ function KanbanStep({ step, funnelLeads, user, selectedFunnel, setSelectedStep, 
           <span className={`text-xs text-gray-400`}>#{step.order}</span>
           {user?.role === 'ADMIN' && !(selectedFunnel?.name.toLowerCase() === 'novos contatos' && step.order === 1) && (
             <button
+              id={`delete-step-${step.id}`}
               onClick={() => deleteStep(step.id)}
               className={`text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 ${styles.deletarfunil}`}
               title="Deletar etapa"
@@ -115,6 +121,7 @@ function KanbanStep({ step, funnelLeads, user, selectedFunnel, setSelectedStep, 
       {/* Ação: Adicionar lead */}
       <div id={`add-lead-section-${step.id}`} className={`mb-3 ${styles.adicionarlead}`}>
         <button
+          id={`add-lead-btn-${step.id}`}
           onClick={() => {
             setSelectedStep(step);
             setShowLeadModal(true);
@@ -143,6 +150,30 @@ function KanbanStep({ step, funnelLeads, user, selectedFunnel, setSelectedStep, 
                     </span>
                   </div>
                   <div className={`font-medium text-gray-900 ${styles.nomelead}`}>{lead.name || 'Lead sem nome'}</div>
+                  {/* Tags do Lead */}
+                  {lead.tags && lead.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {lead.tags.slice(0, 3).map((tagOnLead: any) => (
+                        <span
+                          key={tagOnLead.tag.id}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{
+                            backgroundColor: `${tagOnLead.tag.color}20`,
+                            color: tagOnLead.tag.color,
+                            border: `1px solid ${tagOnLead.tag.color}40`
+                          }}
+                        >
+                          {tagOnLead.tag.icon && <span>{tagOnLead.tag.icon}</span>}
+                          <span>{tagOnLead.tag.name}</span>
+                        </span>
+                      ))}
+                      {lead.tags.length > 3 && (
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          +{lead.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div id={`lead-task-indicator-${lead.id}`} className={`mt-2 flex items-center gap-2`}>
                     <span className={`inline-block h-4 w-4 rounded-full bg-violet-500`} />
                     <TaskIndicator leadId={lead.id} stepId={lead.stepId} />
@@ -156,6 +187,7 @@ function KanbanStep({ step, funnelLeads, user, selectedFunnel, setSelectedStep, 
                 </div>
                 <div id={`lead-actions-${lead.id}`} className={`flex flex-col items-end space-y-1`}>
                   <button
+                    id={`edit-lead-btn-${lead.id}`}
                     onClick={() => {
                       setEditingLead(lead);
                       setLeadData({
@@ -209,13 +241,14 @@ export default function FunnelsPage() {
   const [selectedFunnel, setSelectedFunnel] = useState<Funnel | null>(null);
   const [funnelLeads, setFunnelLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [allFunnels, setAllFunnels] = useState<Funnel[]>([]); // Todos os funis (para realocação entre unidades)
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
   const [newStepName, setNewStepName] = useState('');
   const [newStepTipoConceitual, setNewStepTipoConceitual] = useState('CAPTACAO');
   const [showFunnelDropdown, setShowFunnelDropdown] = useState(false);
-  
+
   // Estados para leads
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
@@ -251,10 +284,19 @@ export default function FunnelsPage() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const { selectedUnit, units } = useUnit();
+
+  // Carregar todos os funis UMA VEZ (para modal de realocação)
   useEffect(() => {
-    fetchFunnels();
+    fetchAllFunnels();
     fetchColaboradores();
   }, []);
+
+  useEffect(() => {
+    // Reset selected funnel when unit changes
+    setSelectedFunnel(null);
+    fetchFunnels();
+  }, [selectedUnit]); // Re-fetch when unit changes
 
   // Função para fazer scroll horizontal
   const scrollKanban = (direction: 'left' | 'right') => {
@@ -307,10 +349,10 @@ export default function FunnelsPage() {
 
   // Opções para dropdowns
   const tipoProcuraOptions = [
-    'ORTODONTIA', 'IMPLANTE', 'ESTETICA', 'LIMPEZA', 'CANAL', 
+    'ORTODONTIA', 'IMPLANTE', 'ESTETICA', 'LIMPEZA', 'CANAL',
     'EXTRACAO', 'PROTESE', 'CLAREAMENTO', 'OUTROS'
   ];
-  
+
   const meioCaptacaoOptions = [
     'WHATSAPP', 'INSTAGRAM', 'FACEBOOK', 'GOOGLE_ADS', 'INDICACAO',
     'SITE', 'TELEFONE', 'PRESENCIAL', 'OUTROS'
@@ -320,7 +362,7 @@ export default function FunnelsPage() {
   const getDentistas = () => {
     return colaboradores.filter(colab => colab.role === 'DENTIST');
   };
-  
+
   const motivoPerdaOptions = [
     'PRECO', 'TEMPO', 'LOCALIZACAO', 'CONFIANCA', 'CONCORRENCIA',
     'NAO_INTERESSADO', 'NAO_RESPONDEU', 'OUTROS'
@@ -385,21 +427,29 @@ export default function FunnelsPage() {
 
   const fetchFunnels = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/funnels`, {
+      const unitParam = selectedUnit?.id ? `?unitId=${selectedUnit.id}` : '';
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/funnels${unitParam}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
+        console.log(`📊 Funis carregados (Unidade: ${selectedUnit?.name || 'Todas'}):`, data.length);
         setFunnels(data);
-        // Sempre selecionar o primeiro funil se não houver nenhum selecionado
-        if (data.length > 0 && !selectedFunnel) {
-          console.log('Selecionando automaticamente o primeiro funil:', data[0].name);
+
+        // Sempre selecionar o primeiro funil da lista
+        // Isso garante que ao trocar de unidade, sempre teremos um funil válido selecionado
+        if (data.length > 0) {
+          console.log('✅ Selecionando automaticamente o primeiro funil:', data[0].name);
           setSelectedFunnel(data[0]);
+        } else {
+          console.log('⚠️  Nenhum funil encontrado para esta unidade');
+          setSelectedFunnel(null);
         }
-        return data; // Retornar os dados para uso posterior
+
+        return data;
       }
     } catch (error) {
       console.error('Erro ao buscar funis:', error);
@@ -409,6 +459,27 @@ export default function FunnelsPage() {
     return []; // Retornar array vazio em caso de erro
   };
 
+  // Buscar TODOS os funis (sem filtro de unidade) - para realocação entre unidades
+  const fetchAllFunnels = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/funnels`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Todos os funis carregados para realocação:', data.length);
+        setAllFunnels(data);
+        return data;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar todos os funis:', error);
+    }
+    return [];
+  };
+
   const fetchColaboradores = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
@@ -416,7 +487,7 @@ export default function FunnelsPage() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setColaboradores(data);
@@ -434,11 +505,12 @@ export default function FunnelsPage() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
-      
+
       if (response.ok) {
         const leads = await response.json();
         console.log('✅ Leads encontrados:', leads.length, 'leads para funil', funnelId);
         console.log('📋 Leads detalhados:', leads);
+        console.log('🔍 PRIMEIRO LEAD - JSON completo:', JSON.stringify(leads[0], null, 2));
         setFunnelLeads(leads);
       } else {
         console.error('❌ Erro na resposta:', response.status, response.statusText);
@@ -448,26 +520,46 @@ export default function FunnelsPage() {
     }
   };
 
+  // Helper para converter data ISO para formato datetime-local
+  const formatDateTimeLocal = (isoDate: string | null | undefined) => {
+    if (!isoDate) return '';
+    try {
+      const date = new Date(isoDate);
+      // Ajustar para o fuso horário local
+      const offset = date.getTimezoneOffset() * 60000;
+      const localDate = new Date(date.getTime() - offset);
+      return localDate.toISOString().slice(0, 16);
+    } catch {
+      return '';
+    }
+  };
+
   const createFunnel = async () => {
     if (!newFunnelName.trim()) return;
 
     try {
+      // Incluir unitId se houver unidade selecionada
+      const funnelData: any = { name: newFunnelName };
+      if (selectedUnit?.id) {
+        funnelData.unitId = selectedUnit.id;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/funnels`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ name: newFunnelName }),
+        body: JSON.stringify(funnelData),
       });
 
       if (response.ok) {
         const newFunnel = await response.json();
+        console.log(`✅ Funil criado na unidade "${selectedUnit?.name || 'Padrão'}":`, newFunnel);
         setFunnels([newFunnel, ...funnels]);
         setSelectedFunnel(newFunnel);
         setNewFunnelName('');
         setShowCreateModal(false);
-        console.log('Funil criado no banco:', newFunnel);
       } else {
         console.error('Erro ao criar funil:', response.statusText);
         alert('Erro ao criar funil. Verifique sua conexão.');
@@ -495,12 +587,12 @@ export default function FunnelsPage() {
         // Remover funil da lista
         const updatedFunnels = funnels.filter(f => f.id !== funnelId);
         setFunnels(updatedFunnels);
-        
+
         // Se o funil deletado era o selecionado, selecionar outro ou limpar
         if (selectedFunnel?.id === funnelId) {
           setSelectedFunnel(updatedFunnels.length > 0 ? updatedFunnels[0] : null);
         }
-        
+
         console.log('Funil deletado com sucesso');
       } else {
         const error = await response.text();
@@ -620,17 +712,17 @@ export default function FunnelsPage() {
       if (response.ok) {
         const newLead = await response.json();
         console.log('Lead criado:', newLead);
-        
+
         // Resetar formulário
         resetLeadForm();
         setShowLeadModal(false);
         setSelectedStep(null);
-        
+
         // Recarregar apenas os leads do funil atual
         if (selectedFunnel) {
           fetchLeadsForFunnel(selectedFunnel.id);
         }
-        
+
         alert('Lead criado com sucesso!');
       } else {
         const error = await response.text();
@@ -688,35 +780,35 @@ export default function FunnelsPage() {
       if (response.ok) {
         const updatedLead = await response.json();
         console.log('Lead atualizado:', updatedLead);
-        
+
         // Resetar formulário e estados
         resetLeadForm();
         setShowEditLeadModal(false);
         setEditingLead(null);
-        
+
         // SEMPRE recarregar a lista de funis para atualizar contadores
         const updatedFunnels = await fetchFunnels();
-        
+
         // Determinar quais funis precisam ter seus leads recarregados
         const funnelsToReload = new Set<string>();
-        
+
         // Sempre recarregar o funil atual (se existir)
         if (selectedFunnel) {
           funnelsToReload.add(selectedFunnel.id);
         }
-        
+
         // Se mudou de funil, recarregar o funil de destino também
         if (leadData.funnelId !== editingLead.funnelId && leadData.funnelId) {
           funnelsToReload.add(leadData.funnelId);
         }
-        
+
         // Recarregar leads de todos os funis afetados
         for (const funnelId of funnelsToReload) {
           fetchLeadsForFunnel(funnelId);
         }
-        
+
         console.log(`Lead movido de ${editingLead.funnelId} para ${leadData.funnelId}`);
-        
+
         alert('Lead realocado com sucesso!');
       } else {
         const error = await response.text();
@@ -770,10 +862,12 @@ export default function FunnelsPage() {
       valorOrcamento: '',
       dataConsulta: '',
       tipoProcura: '',
+      duracaoConsulta: '60',
       meioCaptacao: '',
       closerNegociacao: '',
       closerFollow: '',
       dentista: '',
+      dentistaId: '',
       motivoPerda: '',
       dentistaParticipou: '',
       previsaoFechamento: '',
@@ -867,9 +961,8 @@ export default function FunnelsPage() {
                       <div
                         key={funnel.id}
                         id={`funnel-dropdown-item-${funnel.id}`}
-                        className={`flex items-center justify-between px-3 py-2 text-sm first:rounded-t-md last:rounded-b-md ${
-                          selectedFunnel?.id === funnel.id ? 'bg-violet-50 text-violet-700' : 'text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`flex items-center justify-between px-3 py-2 text-sm first:rounded-t-md last:rounded-b-md ${selectedFunnel?.id === funnel.id ? 'bg-violet-50 text-violet-700' : 'text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                         <button
                           onClick={(e) => {
@@ -907,6 +1000,7 @@ export default function FunnelsPage() {
               </div>
             )}
             <button
+              id="btn-new-funnel"
               onClick={() => setShowCreateModal(true)}
               className={`bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-md text-white text-sm font-medium shadow-sm ${styles['btn-primaryperson']}`}
               type="button"
@@ -914,27 +1008,28 @@ export default function FunnelsPage() {
               + Novo Funil
             </button>
             {selectedFunnel && (
-            <button
-              onClick={() => setShowStepModal(true)}
-              className={`bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-md text-white text-sm font-medium shadow-sm ${styles['btn-primaryperson']}`}
-              type="button"
-            >
-              Nova Etapa
-            </button>
-          )}
+              <button
+                id="btn-new-step"
+                onClick={() => setShowStepModal(true)}
+                className={`bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-md text-white text-sm font-medium shadow-sm ${styles['btn-primaryperson']}`}
+                type="button"
+              >
+                Nova Etapa
+              </button>
+            )}
           </div>
-          
+
         </div>
       </div>
 
       <div id="main-content-wrapper" className={`flex`}>
         {/* Main Content - Detalhes do Funil */}
-        <div id="funnel-details-container" className={`flex-1 p-8`} style={{minWidth: 0, maxWidth: '100%'}}>
+        <div id="funnel-details-container" className={`flex-1 p-8`} style={{ minWidth: 0, maxWidth: '100%' }}>
           {selectedFunnel ? (
             <div id="selected-funnel-content">
               <div id="funnel-title-section" className={`flex items-center justify-between mb-8 ${styles.titulofunilespaco}`}>
                 <h2 className={`text-xl font-semibold tracking-tight text-gray-800`}>{selectedFunnel.name}</h2>
-                
+
               </div>
 
               {/* Kanban Board com Botões Flutuantes */}
@@ -942,6 +1037,7 @@ export default function FunnelsPage() {
                 {/* Botão Esquerdo Flutuante */}
                 {canScrollLeft && (
                   <button
+                    id="btn-scroll-left"
                     onClick={() => scrollKanban('left')}
                     className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm p-3 rounded-full shadow-xl border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-all hover:scale-110"
                     style={{ marginLeft: '1rem' }}
@@ -953,6 +1049,7 @@ export default function FunnelsPage() {
                 {/* Botão Direito Flutuante */}
                 {canScrollRight && (
                   <button
+                    id="btn-scroll-right"
                     onClick={() => scrollKanban('right')}
                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm p-3 rounded-full shadow-xl border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-all hover:scale-110"
                     style={{ marginRight: '1rem' }}
@@ -961,201 +1058,188 @@ export default function FunnelsPage() {
                   </button>
                 )}
 
-              <div
-                id="kanban-board-container"
-                className={styles.kanbanScroll}
-                style={{
-                minHeight: '60vh',
-                width: '100vw',
-                marginLeft: '-2rem',
-                marginRight: '-2rem',
-                paddingLeft: '2rem',
-                paddingRight: '2rem',
-                paddingTop: '20px',
-                paddingBottom: '20px',
-                overflowX: 'scroll',
-                overflowY: 'visible',
-                background: 'linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)',
-                position: 'relative'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  gap: '16px',
-                  paddingBottom: '8px',
-                  paddingRight: '2rem',
-                  width: '7000px'
-                }}>
-                {selectedFunnel.steps.map((step, index) => {
-                  // Calcular largura dinâmica baseada no número de etapas
-                  const numSteps = selectedFunnel.steps.length;
-                  let columnWidth: number;
+                <div
+                  id="kanban-board-container"
+                  className={styles.kanbanContainer}>
+                  <div className={styles.kanbanInner}>
+                    {selectedFunnel.steps.map((step, index) => {
+                      // Calcular largura dinâmica baseada no número de etapas
+                      const numSteps = selectedFunnel.steps.length;
+                      let columnWidth: number;
 
-                  if (numSteps <= 3) {
-                    // Poucas etapas: colunas mais largas
-                    columnWidth = 380;
-                  } else if (numSteps <= 5) {
-                    // Número médio: largura padrão
-                    columnWidth = 320;
-                  } else if (numSteps <= 8) {
-                    // Várias etapas: colunas mais compactas
-                    columnWidth = 280;
-                  } else {
-                    // Muitas etapas: colunas bem compactas
-                    columnWidth = 260;
-                  }
+                      if (numSteps <= 3) {
+                        // Poucas etapas: colunas mais largas
+                        columnWidth = 380;
+                      } else if (numSteps <= 5) {
+                        // Número médio: largura padrão
+                        columnWidth = 320;
+                      } else if (numSteps <= 8) {
+                        // Várias etapas: colunas mais compactas
+                        columnWidth = 280;
+                      } else {
+                        // Muitas etapas: colunas bem compactas
+                        columnWidth = 260;
+                      }
 
-                  return (
-                  <div
-                    key={step.id}
-                    id={`kanban-step-${step.id}`}
-                    className={`rounded-2xl p-4 bg-white`}
-                    style={{
-                      minWidth: `${columnWidth}px`,
-                      width: `${columnWidth}px`,
-                      flexShrink: 0,
-                      flexGrow: 0,
-                      flexBasis: `${columnWidth}px`,
-                      border: '2px solid #F3F4F6',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-                    }}
-                  >
-                    {(() => {
-                      const stepLeads = funnelLeads.filter(lead => lead.stepId === step.id);
-                      const tipoConceitual = getTipoConceitual(step.tipoConceitual || 'CAPTACAO');
                       return (
-                        <>
-                          <div id={`step-header-${step.id}`} className={`flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-100`}>
-                            <div id={`step-title-${step.id}`} className={`flex items-center gap-3`}>
-                              <h3 className={`font-bold text-gray-800 text-base`}>{step.name}</h3>
-                              <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-purple-600 rounded-full shadow-sm`}>
-                                {stepLeads.length}
-                              </span>
-                            </div>
-                            <div id={`step-actions-${step.id}`} className={`flex items-center gap-2`}>
-                              <span className={`text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md`}>#{step.order}</span>
-                              {user?.role === 'ADMIN' && !(selectedFunnel?.name.toLowerCase() === DEFAULT_FUNNEL_NAME.toLowerCase() && step.order === 1) && (
-                                <button
-                                  onClick={() => deleteStep(step.id)}
-                                  className={`text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 ${styles.deletarfunil}`}
-                                  title="Deletar etapa"
-                                  type="button"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          {/* Rótulo Conceitual */}
-                          <div id={`step-type-label-${step.id}`} className={`mb-4`}>
-                            <div
-                              id={`step-type-badge-${step.id}`}
-                              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm`}
-                              style={{
-                                backgroundColor: tipoConceitual.color + '18',
-                                color: tipoConceitual.color,
-                                border: `2px solid ${tipoConceitual.color}40`
-                              }}
-                              title={tipoConceitual.description}
-                            >
-                              {tipoConceitual.icon && React.createElement(tipoConceitual.icon, { className: 'w-3.5 h-3.5' })}
-                              <span className="font-semibold">{tipoConceitual.label}</span>
-                            </div>
-                          </div>
-                          {/* Ação: Adicionar lead (chip) */}
-                          <div id={`add-lead-section-${step.id}`} className={`mb-3 ${styles.adicionarlead}`}>
-                            <button
-                              onClick={() => {
-                                setSelectedStep(step);
-                                setShowLeadModal(true);
-                              }}
-                              className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${styles.adicionarleadbuttonfilho}`}
-                              type="button"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Adicionar Lead
-                            </button>
-                          </div>
-                          {/* Lista de leads */}
-                          <div id={`leads-list-${step.id}`} className={`space-y-3`}>
-                            {stepLeads.length > 0 ? (
-                              stepLeads.map((lead) => (
-                                <div
-                                  key={lead.id}
-                                  id={`lead-card-${lead.id}`}
-                                  className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow transition-shadow ${styles.kanbanboardsinglepai}`}
-                                >
-                                  <div id={`lead-content-${lead.id}`} className={`flex justify-between items-start ${styles.kanbanboardsinglefilho}`}>
-                                    <div id={`lead-info-${lead.id}`} className={`flex-1`}>
-                                      <div className={`inline-flex items-center mb-2 ${styles.telefoneleadalinha}`}>
-                                        <span className={`inline-flex items-center rounded-full border border-violet-300 text-violet-700 text-[11px] px-2 py-0.5 ${styles.telefonelead}`}>
-                                          {lead.phone}
-                                        </span>
-                                      </div>
-                                      <div className={`font-medium text-gray-900 ${styles.nomelead}`}>{lead.name || 'Lead sem nome'}</div>
-                                      <div className={`mt-2 flex items-center gap-2`}>
-                                        <span className={`inline-block h-4 w-4 rounded-full bg-violet-500`} />
-                                        <TaskIndicator leadId={lead.id} stepId={lead.stepId} />
-                                      </div>
-                                      <div className={`mt-3 text-xs text-gray-500 flex items-center gap-1`}>
-                                        
-                                        <span className={`${styles.datacalendariolead}`}>{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</span>
-                                      </div>
-                                    </div>
-                                    <div className={`flex flex-col items-end space-y-1`}>
+                        <div
+                          key={step.id}
+                          id={`kanban-step-${step.id}`}
+                          className={`rounded-2xl p-4 bg-white`}
+                          style={{
+                            minWidth: `${columnWidth}px`,
+                            width: `${columnWidth}px`,
+                            flexShrink: 0,
+                            flexGrow: 0,
+                            flexBasis: `${columnWidth}px`,
+                            border: '2px solid #F3F4F6',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                          }}
+                        >
+                          {(() => {
+                            const stepLeads = funnelLeads.filter(lead => lead.stepId === step.id);
+                            const tipoConceitual = getTipoConceitual(step.tipoConceitual || 'CAPTACAO');
+                            return (
+                              <>
+                                <div id={`step-header-${step.id}`} className={`flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-100`}>
+                                  <div id={`step-title-${step.id}`} className={`flex items-center gap-3`}>
+                                    <h3 className={`font-bold text-gray-800 text-base`}>{step.name}</h3>
+                                    <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-purple-600 rounded-full shadow-sm`}>
+                                      {stepLeads.length}
+                                    </span>
+                                  </div>
+                                  <div id={`step-actions-${step.id}`} className={`flex items-center gap-2`}>
+                                    <span className={`text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md`}>#{step.order}</span>
+                                    {user?.role === 'ADMIN' && !(selectedFunnel?.name.toLowerCase() === DEFAULT_FUNNEL_NAME.toLowerCase() && step.order === 1) && (
                                       <button
-                                        onClick={() => {
-                                          setEditingLead(lead);
-                                          setLeadData({
-                                            phone: lead.phone || '',
-                                            name: lead.name || '',
-                                            valorVenda: lead.valorVenda ? lead.valorVenda.toString() : '',
-                                            valorOrcamento: lead.valorOrcamento ? lead.valorOrcamento.toString() : '',
-                                            dataConsulta: lead.dataConsulta || '',
-                                            tipoProcura: lead.tipoProcura || '',
-                                            meioCaptacao: lead.meioCaptacao || '',
-                                            closerNegociacao: lead.closerNegociacao || '',
-                                            closerFollow: lead.closerFollow || '',
-                                            dentista: lead.dentista || '',
-                                            motivoPerda: lead.motivoPerda || '',
-                                            dentistaParticipou: lead.dentistaParticipou || '',
-                                            previsaoFechamento: lead.previsaoFechamento || '',
-                                            objecao: lead.objecao || '',
-                                            observacoes: lead.observacoes || '',
-                                            responsibleId: lead.responsibleId || '',
-                                            funnelId: lead.funnelId || '',
-                                            stepId: lead.stepId || '',
-                                            statusVenda: lead.statusVenda || '',
-                                            dataFechamento: lead.dataFechamento || ''
-                                          });
-                                          const currentFunnel = funnels.find(f => f.id === lead.funnelId);
-                                          setAvailableSteps(currentFunnel?.steps || []);
-                                          setShowEditLeadModal(true);
-                                        }}
-                                        className={`text-xs text-violet-700 hover:text-violet-800 px-2 py-1 bg-violet-50 rounded border border-violet-200 hover:bg-violet-100 transition-colors ${styles.editarlead}`}
+                                        onClick={() => deleteStep(step.id)}
+                                        className={`text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 ${styles.deletarfunil}`}
+                                        title="Deletar etapa"
+                                        type="button"
                                       >
-                                        <MoreVertical className="w-4 h-4" />
+                                        <Trash2 className="w-4 h-4" />
                                       </button>
-                                    </div>
+                                    )}
                                   </div>
                                 </div>
-                              ))
-                            ) : (
-                              <div className={`text-center py-12 px-4`}>
-                                <div className={`text-gray-400 mb-2`}>
-                                  <Briefcase className="w-10 h-10 mx-auto opacity-30" />
+                                {/* Rótulo Conceitual */}
+                                <div id={`step-type-label-${step.id}`} className={`mb-4`}>
+                                  <div
+                                    id={`step-type-badge-${step.id}`}
+                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm`}
+                                    style={{
+                                      backgroundColor: tipoConceitual.color + '18',
+                                      color: tipoConceitual.color,
+                                      border: `2px solid ${tipoConceitual.color}40`
+                                    }}
+                                    title={tipoConceitual.description}
+                                  >
+                                    {tipoConceitual.icon && React.createElement(tipoConceitual.icon, { className: 'w-3.5 h-3.5' })}
+                                    <span className="font-semibold">{tipoConceitual.label}</span>
+                                  </div>
                                 </div>
-                                <div className={`text-sm text-gray-400 font-medium`}>Nenhum lead nesta etapa</div>
-                              </div>
-                            )}
-                          </div>
-                        </>
+                                {/* Ação: Adicionar lead (chip) */}
+                                <div id={`add-lead-section-${step.id}`} className={`mb-3 ${styles.adicionarlead}`}>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedStep(step);
+                                      setShowLeadModal(true);
+                                    }}
+                                    className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${styles.adicionarleadbuttonfilho}`}
+                                    type="button"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    Adicionar Lead
+                                  </button>
+                                </div>
+                                {/* Lista de leads */}
+                                <div id={`leads-list-${step.id}`} className={`space-y-3`}>
+                                  {stepLeads.length > 0 ? (
+                                    stepLeads.map((lead) => (
+                                      <div
+                                        key={lead.id}
+                                        id={`lead-card-${lead.id}`}
+                                        className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow transition-shadow ${styles.kanbanboardsinglepai}`}
+                                      >
+                                        <div id={`lead-content-${lead.id}`} className={`flex justify-between items-start ${styles.kanbanboardsinglefilho}`}>
+                                          <div id={`lead-info-${lead.id}`} className={`flex-1`}>
+                                            <div className={`inline-flex items-center mb-2 ${styles.telefoneleadalinha}`}>
+                                              <span className={`inline-flex items-center rounded-full border border-violet-300 text-violet-700 text-[11px] px-2 py-0.5 ${styles.telefonelead}`}>
+                                                {lead.phone}
+                                              </span>
+                                            </div>
+                                            <div className={`font-medium text-gray-900 ${styles.nomelead}`}>{lead.name || 'Lead sem nome'}</div>
+                                            <div className={`mt-2 flex items-center gap-2`}>
+                                              <span className={`inline-block h-4 w-4 rounded-full bg-violet-500`} />
+                                              <TaskIndicator leadId={lead.id} stepId={lead.stepId} />
+                                            </div>
+                                            <div className={`mt-3 text-xs text-gray-500 flex items-center gap-1`}>
+
+                                              <span className={`${styles.datacalendariolead}`}>{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</span>
+                                            </div>
+                                          </div>
+                                          <div className={`flex flex-col items-end space-y-1`}>
+                                            <button
+                                              onClick={() => {
+                                                console.log('🔵 CLICK NO CARD - Lead completo:', lead);
+                                                console.log('🔵 dataConsulta raw:', lead.dataConsulta, 'tipo:', typeof lead.dataConsulta);
+                                                console.log('🔵 duracaoConsulta raw:', lead.duracaoConsulta, 'tipo:', typeof lead.duracaoConsulta);
+                                                console.log('🔵 dentistaId raw:', lead.dentistaId);
+
+                                                setEditingLead(lead);
+                                                setLeadData({
+                                                  phone: lead.phone || '',
+                                                  name: lead.name || '',
+                                                  valorVenda: lead.valorVenda ? lead.valorVenda.toString() : '',
+                                                  valorOrcamento: lead.valorOrcamento ? lead.valorOrcamento.toString() : '',
+                                                  dataConsulta: formatDateTimeLocal(lead.dataConsulta),
+                                                  duracaoConsulta: lead.duracaoConsulta ? lead.duracaoConsulta.toString() : '60',
+                                                  tipoProcura: lead.tipoProcura || '',
+                                                  meioCaptacao: lead.meioCaptacao || '',
+                                                  closerNegociacao: lead.closerNegociacao || '',
+                                                  closerFollow: lead.closerFollow || '',
+                                                  dentista: lead.dentista || '',
+                                                  dentistaId: lead.dentistaId || '',
+                                                  motivoPerda: lead.motivoPerda || '',
+                                                  dentistaParticipou: lead.dentistaParticipou || '',
+                                                  previsaoFechamento: lead.previsaoFechamento ? lead.previsaoFechamento.split('T')[0] : '',
+                                                  objecao: lead.objecao || '',
+                                                  observacoes: lead.observacoes || '',
+                                                  responsibleId: lead.responsibleId || '',
+                                                  funnelId: lead.funnelId || '',
+                                                  stepId: lead.stepId || '',
+                                                  statusVenda: lead.statusVenda || '',
+                                                  dataFechamento: lead.dataFechamento || ''
+                                                });
+                                                const currentFunnel = funnels.find(f => f.id === lead.funnelId);
+                                                setAvailableSteps(currentFunnel?.steps || []);
+                                                setShowEditLeadModal(true);
+                                              }}
+                                              className={`text-xs text-violet-700 hover:text-violet-800 px-2 py-1 bg-violet-50 rounded border border-violet-200 hover:bg-violet-100 transition-colors ${styles.editarlead}`}
+                                            >
+                                              <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className={`text-center py-12 px-4`}>
+                                      <div className={`text-gray-400 mb-2`}>
+                                        <Briefcase className="w-10 h-10 mx-auto opacity-30" />
+                                      </div>
+                                      <div className={`text-sm text-gray-400 font-medium`}>Nenhum lead nesta etapa</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       );
-                    })()}
+                    })}
                   </div>
-                  );
-                })}
                 </div>
-              </div>
               </div>
             </div>
           ) : (
@@ -1191,7 +1275,8 @@ export default function FunnelsPage() {
             setNewFunnelName('');
           }}
         >
-          <div 
+          <div
+            id="create-funnel-modal-container"
             style={{
               backgroundColor: 'white',
               padding: '24px',
@@ -1205,6 +1290,7 @@ export default function FunnelsPage() {
               Criar Novo Funil
             </h3>
             <input
+              id="input-new-funnel-name"
               type="text"
               placeholder="Nome do funil"
               value={newFunnelName}
@@ -1221,6 +1307,7 @@ export default function FunnelsPage() {
             />
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button
+                id="btn-confirm-create-funnel"
                 onClick={() => {
                   console.log('Criando funil:', newFunnelName);
                   createFunnel();
@@ -1239,6 +1326,7 @@ export default function FunnelsPage() {
                 Criar
               </button>
               <button
+                id="btn-cancel-create-funnel"
                 onClick={() => {
                   console.log('Cancelando criação');
                   setShowCreateModal(false);
@@ -1253,6 +1341,7 @@ export default function FunnelsPage() {
                   borderRadius: '4px',
                   cursor: 'pointer'
                 }}
+                disabled={false}
               >
                 Cancelar
               </button>
@@ -1263,7 +1352,8 @@ export default function FunnelsPage() {
 
       {/* Modal Criar Etapa - VERSÃO SIMPLES */}
       {showStepModal && selectedFunnel ? (
-        <div 
+        <div
+          id="create-step-modal-overlay"
           style={{
             position: 'fixed',
             top: 0,
@@ -1283,7 +1373,8 @@ export default function FunnelsPage() {
             setNewStepTipoConceitual('CAPTACAO');
           }}
         >
-          <div 
+          <div
+            id="create-step-modal-container"
             style={{
               backgroundColor: 'white',
               padding: '24px',
@@ -1300,6 +1391,7 @@ export default function FunnelsPage() {
               Funil: {selectedFunnel.name}
             </p>
             <input
+              id="input-new-step-name"
               type="text"
               placeholder="Nome da etapa"
               value={newStepName}
@@ -1320,6 +1412,7 @@ export default function FunnelsPage() {
                 Tipo Conceitual (para relatórios)
               </label>
               <select
+                id="select-new-step-type"
                 value={newStepTipoConceitual}
                 onChange={(e) => setNewStepTipoConceitual(e.target.value)}
                 style={{
@@ -1397,542 +1490,126 @@ export default function FunnelsPage() {
       ) : null}
 
       {/* Modal Criar Lead */}
-      {showLeadModal ? (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999999
-          }}
-          onClick={() => {
-            setShowLeadModal(false);
-            setSelectedStep(null);
-            setLeadData({
-              phone: '',
-              name: '',
-              valorVenda: '',
-              dataConsulta: '',
-              tipoProcura: '',
-              meioCaptacao: '',
-              closerNegociacao: '',
-              closerFollow: '',
-              dentista: '',
-              motivoPerda: '',
-              dentistaParticipou: '',
-              previsaoFechamento: '',
-              objecao: '',
-              observacoes: '',
-              responsibleId: '',
-              funnelId: '',
-              stepId: ''
-            });
-          }}
-        >
-          <div 
-            style={{
-              backgroundColor: '#1f2937',
-              padding: '24px',
-              borderRadius: '8px',
-              width: '90%',
-              maxWidth: '800px',
-              maxHeight: '90vh',
-              overflow: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ 
-              fontSize: '20px', 
-              fontWeight: 'bold', 
-              marginBottom: '20px',
-              color: 'white'
-            }}>
-              Novo Lead - {selectedStep?.name}
-            </h3>
-
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-              gap: '16px' 
-            }}>
-              {/* Telefone - OBRIGATÓRIO */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white', fontWeight: 'bold' }}>
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  value={leadData.phone}
-                  onChange={(e) => setLeadData({ ...leadData, phone: e.target.value })}
-                  placeholder="(11) 99999-9999"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                  required
-                />
-              </div>
-
-              {/* Nome */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Nome
-                </label>
-                <input
-                  type="text"
-                  value={leadData.name}
-                  onChange={(e) => setLeadData({ ...leadData, name: e.target.value })}
-                  placeholder="Nome do lead"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                />
-              </div>
-
-              {/* Valor da Venda */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Valor da Venda (R$)
-                </label>
-                <input
-                  type="number"
-                  value={leadData.valorVenda}
-                  onChange={(e) => setLeadData({ ...leadData, valorVenda: e.target.value })}
-                  placeholder="0.00"
-                  step="0.01"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                />
-              </div>
-
-              {/* Data da Consulta */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Data e Hora da Consulta
-                </label>
-                <input
-                  type="datetime-local"
-                  value={leadData.dataConsulta}
-                  onChange={(e) => setLeadData({ ...leadData, dataConsulta: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                />
-              </div>
-
-              {/* Tipo de Procura */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Tipo de Procura
-                </label>
-                <select
-                  value={leadData.tipoProcura}
-                  onChange={(e) => setLeadData({ ...leadData, tipoProcura: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {tipoProcuraOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Meio de Captação */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Meio de Captação
-                </label>
-                <select
-                  value={leadData.meioCaptacao}
-                  onChange={(e) => setLeadData({ ...leadData, meioCaptacao: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {meioCaptacaoOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Closer Negociação */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Closer de Negociação
-                </label>
-                <select
-                  value={leadData.closerNegociacao}
-                  onChange={(e) => setLeadData({ ...leadData, closerNegociacao: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {getClosersNegociacao().map(colab => (
-                    <option key={colab.id} value={colab.name}>{colab.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Closer Follow */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Closer de Follow
-                </label>
-                <select
-                  value={leadData.closerFollow}
-                  onChange={(e) => setLeadData({ ...leadData, closerFollow: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {getClosersFollow().map(colab => (
-                    <option key={colab.id} value={colab.name}>{colab.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Dentista */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Dentista
-                </label>
-                <select
-                  value={leadData.dentistaId}
-                  onChange={(e) => setLeadData({ ...leadData, dentistaId: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {getDentistas().map(dentista => (
-                    <option key={dentista.id} value={dentista.id}>{dentista.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Motivo da Perda */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Motivo da Perda
-                </label>
-                <select
-                  value={leadData.motivoPerda}
-                  onChange={(e) => setLeadData({ ...leadData, motivoPerda: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {motivoPerdaOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Dentista Participou */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Dentista Participou
-                </label>
-                <select
-                  value={leadData.dentistaParticipou}
-                  onChange={(e) => setLeadData({ ...leadData, dentistaParticipou: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="SIM">SIM</option>
-                  <option value="NAO">NÃO</option>
-                </select>
-              </div>
-
-              {/* Previsão de Fechamento */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Previsão de Fechamento
-                </label>
-                <input
-                  type="date"
-                  value={leadData.previsaoFechamento}
-                  onChange={(e) => setLeadData({ ...leadData, previsaoFechamento: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                />
-              </div>
-
-              {/* Objeção */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                  Objeção
-                </label>
-                <select
-                  value={leadData.objecao}
-                  onChange={(e) => setLeadData({ ...leadData, objecao: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#374151',
-                    border: '1px solid #6b7280',
-                    borderRadius: '4px',
-                    color: 'white'
-                  }}
-                >
-                  <option value="">Selecione...</option>
-                  {objecaoOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Observações - Campo grande */}
-            <div style={{ marginTop: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'white' }}>
-                Observações
-              </label>
-              <textarea
-                value={leadData.observacoes}
-                onChange={(e) => setLeadData({ ...leadData, observacoes: e.target.value })}
-                placeholder="Observações sobre o lead..."
-                rows={4}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#374151',
-                  border: '1px solid #6b7280',
-                  borderRadius: '4px',
-                  color: 'white',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            {/* Botões */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '12px', 
-              marginTop: '24px' 
-            }}>
-              <button
-                onClick={createLead}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Criar Lead
-              </button>
-              <button
-                onClick={() => {
-                  setShowLeadModal(false);
-                  setSelectedStep(null);
-                  setLeadData({
-                    phone: '',
-                    name: '',
-                    valorVenda: '',
-                    dataConsulta: '',
-                    tipoProcura: '',
-                    meioCaptacao: '',
-                    closerNegociacao: '',
-                    closerFollow: '',
-                    dentista: '',
-                    motivoPerda: '',
-                    dentistaParticipou: '',
-                    previsaoFechamento: '',
-                    objecao: '',
-                    observacoes: '',
-                    responsibleId: '',
-                    funnelId: '',
-                    stepId: ''
-                  });
-                }}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Lead Detail Panel - Master-Detail Layout */}
-      <LeadDetailPanel
-        lead={editingLead}
-        isOpen={showEditLeadModal}
+      {/* Modal de Novo Lead */}
+      <CreateLeadModal
+        isOpen={showLeadModal}
         onClose={() => {
-          setShowEditLeadModal(false);
-          setEditingLead(null);
+          setShowLeadModal(false);
+          setSelectedStep(null);
           resetLeadForm();
         }}
-        onSave={async (formData) => {
-          if (!editingLead) return;
-
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/leads/${editingLead.id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            body: JSON.stringify({
-              phone: formData.phone,
-              name: formData.name || null,
-              funnelId: formData.funnelId || null,
-              stepId: formData.stepId || null,
-              responsibleId: formData.responsibleId || null,
-              dentistaId: formData.dentistaId || null,
-              valorVenda: formData.valorVenda ? parseFloat(formData.valorVenda) : null,
-              valorOrcamento: formData.valorOrcamento ? parseFloat(formData.valorOrcamento) : null,
-              dataConsulta: formData.dataConsulta || null,
-              duracaoConsulta: formData.duracaoConsulta || null,
-              tipoProcura: formData.tipoProcura || null,
-              meioCaptacao: formData.meioCaptacao || null,
-              closerNegociacao: formData.closerNegociacao || null,
-              closerFollow: formData.closerFollow || null,
-              motivoPerda: formData.motivoPerda || null,
-              dentistaParticipou: formData.dentistaParticipou || null,
-              previsaoFechamento: formData.previsaoFechamento || null,
-              objecao: formData.objecao || null,
-              observacoes: formData.observacoes || null,
-              statusVenda: formData.statusVenda || null,
-              dataFechamento: formData.dataFechamento || null,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Erro ao atualizar lead');
-          }
-
-          // Resetar e recarregar
-          resetLeadForm();
-          setShowEditLeadModal(false);
-          setEditingLead(null);
-
-          // Recarregar funis
-          await fetchFunnels();
-
-          // Recarregar leads do funil atual
-          if (selectedFunnel) {
-            fetchLeadsForFunnel(selectedFunnel.id);
-          }
-
-          // Se mudou de funil, recarregar também
-          if (formData.funnelId !== editingLead.funnelId && formData.funnelId) {
-            fetchLeadsForFunnel(formData.funnelId);
-          }
-
-          alert('Lead atualizado com sucesso!');
+        onSave={createLead}
+        leadData={leadData}
+        setLeadData={setLeadData}
+        stepName={selectedStep?.name}
+        options={{
+          tipoProcura: tipoProcuraOptions,
+          meioCaptacao: meioCaptacaoOptions,
+          motivoPerda: motivoPerdaOptions,
+          objecao: objecaoOptions,
+          closersNegociacao: getClosersNegociacao(),
+          closersFollow: getClosersFollow(),
+          dentistas: getDentistas()
         }}
-        onDelete={async (leadId) => {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/leads/${leadId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error('Erro ao deletar lead');
-          }
-
-          // Recarregar
-          await fetchFunnels();
-          if (selectedFunnel) {
-            fetchLeadsForFunnel(selectedFunnel.id);
-          }
-
-          alert('Lead excluído com sucesso!');
-        }}
-        funnels={funnels}
-        users={colaboradores}
       />
+
+      {/* Lead Detail Panel */}
+      {showEditLeadModal && (
+        <LeadDetailPanel
+          key={editingLead?.id}
+          lead={editingLead}
+          isOpen={showEditLeadModal}
+          onClose={() => {
+            setShowEditLeadModal(false);
+            setEditingLead(null);
+            resetLeadForm();
+          }}
+          onSave={async (formData) => {
+            if (!editingLead) return;
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/leads/${editingLead.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              },
+              body: JSON.stringify({
+                phone: formData.phone,
+                name: formData.name || null,
+                email: formData.email || null,
+                funnelId: formData.funnelId || null,
+                stepId: formData.stepId || null,
+                unitId: formData.unitId || null,
+                responsibleId: formData.responsibleId || null,
+                dentistaId: formData.dentistaId || null,
+                valorVenda: formData.valorVenda ? parseFloat(formData.valorVenda) : null,
+                valorOrcamento: formData.valorOrcamento ? parseFloat(formData.valorOrcamento) : null,
+                dataConsulta: formData.dataConsulta || null,
+                duracaoConsulta: formData.duracaoConsulta || null,
+                tipoProcura: formData.tipoProcura || null,
+                meioCaptacao: formData.meioCaptacao || null,
+                closerNegociacao: formData.closerNegociacao || null,
+                closerFollow: formData.closerFollow || null,
+                motivoPerda: formData.motivoPerda || null,
+                dentistaParticipou: formData.dentistaParticipou || null,
+                previsaoFechamento: formData.previsaoFechamento || null,
+                objecao: formData.objecao || null,
+                observacoes: formData.observacoes || null,
+                statusVenda: formData.statusVenda || null,
+                dataFechamento: formData.dataFechamento || null,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'Erro ao atualizar lead');
+            }
+
+            // Resetar e recarregar
+            resetLeadForm();
+            setShowEditLeadModal(false);
+            setEditingLead(null);
+
+            // Recarregar funis
+            await fetchFunnels();
+
+            // Recarregar leads do funil atual
+            if (selectedFunnel) {
+              fetchLeadsForFunnel(selectedFunnel.id);
+            }
+
+            // Se mudou de funil, recarregar também
+            if (formData.funnelId !== editingLead.funnelId && formData.funnelId) {
+              fetchLeadsForFunnel(formData.funnelId);
+            }
+
+            alert('Lead atualizado com sucesso!');
+          }}
+          onDelete={async (leadId) => {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/crm/leads/${leadId}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error('Erro ao deletar lead');
+            }
+
+            // Recarregar
+            await fetchFunnels();
+            if (selectedFunnel) {
+              fetchLeadsForFunnel(selectedFunnel.id);
+            }
+
+            alert('Lead excluído com sucesso!');
+          }}
+          funnels={allFunnels}
+          users={colaboradores}
+          units={units}
+        />
+      )}
     </div>
   );
 } 

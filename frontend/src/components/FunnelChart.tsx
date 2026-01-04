@@ -114,16 +114,14 @@ const FunnelStep = ({ etapa, maxLeads, isLast, nextEtapa }: {
       {!isLast && nextEtapa && (
         <div className="flex justify-center my-4">
           <div className="flex flex-col items-center">
-            <div className={`rounded-2xl px-6 py-3 text-sm font-bold flex items-center gap-2 shadow-lg border-2 border-white ${
-              realConversionRate >= 70 ? 'bg-gradient-to-br from-green-100 to-green-200 text-green-800' :
-              realConversionRate >= 50 ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-800' :
-              'bg-gradient-to-br from-red-100 to-red-200 text-red-800'
-            }`}>
-              <TrendingDown className={`w-4 h-4 ${
-                realConversionRate >= 70 ? 'text-green-600' :
-                realConversionRate >= 50 ? 'text-yellow-600' :
-                'text-red-600'
-              }`} />
+            <div className={`rounded-2xl px-6 py-3 text-sm font-bold flex items-center gap-2 shadow-lg border-2 border-white ${realConversionRate >= 70 ? 'bg-gradient-to-br from-green-100 to-green-200 text-green-800' :
+                realConversionRate >= 50 ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-800' :
+                  'bg-gradient-to-br from-red-100 to-red-200 text-red-800'
+              }`}>
+              <TrendingDown className={`w-4 h-4 ${realConversionRate >= 70 ? 'text-green-600' :
+                  realConversionRate >= 50 ? 'text-yellow-600' :
+                    'text-red-600'
+                }`} />
               <span className="text-lg">{realConversionRate.toFixed(1)}%</span>
               <span className="text-xs opacity-70">conversão</span>
             </div>
@@ -206,7 +204,7 @@ export default function FunnelChart({ className = '' }: FunnelChartProps) {
   return (
     <div className={className}>
       {/* Header com seletor de funil */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 md:gap-0">
         <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
           <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
             <BarChart3 className="w-6 h-6 text-white" />
@@ -216,7 +214,7 @@ export default function FunnelChart({ className = '' }: FunnelChartProps) {
         <select
           value={selectedFunnel}
           onChange={(e) => setSelectedFunnel(e.target.value)}
-          className="bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-blue-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all cursor-pointer shadow-sm"
+          className="w-full md:w-auto bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-blue-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all cursor-pointer shadow-sm"
         >
           {funnels.map((funnel) => (
             <option key={funnel.id} value={funnel.id}>
@@ -229,7 +227,7 @@ export default function FunnelChart({ className = '' }: FunnelChartProps) {
       {funnelData ? (
         <div className="space-y-8">
           {/* Estatísticas do funil com design melhorado */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-5 border-2 border-blue-200">
               <p className="text-sm font-medium text-blue-600 uppercase tracking-wide mb-2">Taxa Geral</p>
               <p className="text-3xl font-bold text-blue-700">

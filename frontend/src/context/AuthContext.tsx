@@ -26,7 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true to prevent flash
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: data.user.role,
           company: data.user.company,
         };
-        
+
         setUser(userData);
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(userData));
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    
+
     if (savedUser && token) {
       try {
         setUser(JSON.parse(savedUser));
@@ -88,6 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('token');
       }
     }
+    // Mark loading as done after check
+    setLoading(false);
   }, []);
 
   return (

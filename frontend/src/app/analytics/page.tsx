@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useUnit } from '@/context/UnitContext';
 import { analyticsApi } from '@/lib/api';
 import FunnelChart from '@/components/FunnelChart';
 import TeamPerformance from '@/components/TeamPerformance';
@@ -15,7 +17,8 @@ import {
   AlertCircle,
   CheckCircle,
   Calendar,
-  BarChart3
+  BarChart3,
+  UserX
 } from 'lucide-react';
 
 // Tipos baseados no backend
@@ -69,22 +72,21 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, trend, color = 'blue' 
   };
 
   return (
-    <div id="metric-card-container" className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
+    <div id="metric-card-container" className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full">
       {/* Gradient background decorativo */}
       <div id="metric-card-gradient-bg" className={`absolute inset-0 bg-gradient-to-br ${colorClasses[color]} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
 
-      <div id="metric-card-content" className="relative p-6">
+      <div id="metric-card-content" className="relative p-6 flex-1 flex flex-col">
         {/* Header com ícone */}
         <div id="metric-card-header" className="flex items-center justify-between mb-4">
           <div id="metric-card-icon-box" className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses[color]} shadow-lg`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
           {trend && (
-            <div id="metric-card-trend-badge" className={`flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
-              trend.isPositive
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
+            <div id="metric-card-trend-badge" className={`flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${trend.isPositive
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
               {trend.isPositive ? <TrendingUp className="w-3.5 h-3.5 mr-1" /> : <TrendingDown className="w-3.5 h-3.5 mr-1" />}
               {Math.abs(trend.value).toFixed(1)}%
             </div>
@@ -92,11 +94,13 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, trend, color = 'blue' 
         </div>
 
         {/* Conteúdo */}
-        <div id="metric-card-body">
+        <div id="metric-card-body" className="mt-auto">
           <p id="metric-card-title" className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">{title}</p>
           <p id="metric-card-value" className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-          {subtitle && (
+          {subtitle ? (
             <p id="metric-card-subtitle" className="text-sm text-gray-600 font-medium">{subtitle}</p>
+          ) : (
+            <div className="h-5"></div> /* Spacer para manter alinhamento mesmo sem subtítulo */
           )}
         </div>
       </div>
@@ -158,6 +162,7 @@ const AlertCard = ({ alert }: { alert: Alert }) => {
 export default function AnalyticsPage() {
   const [metrics, setMetrics] = useState<VendasMetrics | null>(null);
   const [alerts, setAlerts] = useState<AlertsSummary | null>(null);
+  const [noShowMetrics, setNoShowMetrics] = useState<{ taxaNoShow: number; totalConsultasAgendadas: number; consultasNaoComparecidas: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('30');
@@ -165,6 +170,7 @@ export default function AnalyticsPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -179,7 +185,12 @@ export default function AnalyticsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDatePicker]);
 
+  const { selectedUnit } = useUnit();
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (user && user.role !== 'ADMIN') return;
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -198,16 +209,32 @@ export default function AnalyticsPage() {
           startDate.setDate(endDate.getDate() - parseInt(selectedPeriod));
         }
 
+        // Parâmetros com filtro de unidade
+        const params: any = {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        };
+
+        if (selectedUnit?.id) {
+          params.unitId = selectedUnit.id;
+        }
+
         const [metricsRes, alertsRes] = await Promise.all([
-          analyticsApi.getVendasMetrics({
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString()
-          }),
-          analyticsApi.getAlertsSummary()
+          analyticsApi.getVendasMetrics(params),
+          analyticsApi.getAlertsSummary(selectedUnit?.id ? { unitId: selectedUnit.id } : {})
         ]);
 
+        console.log(`📊 Analytics carregados (Unidade: ${selectedUnit?.name || 'Todas'}):`, metricsRes.data);
         setMetrics(metricsRes.data);
         setAlerts(alertsRes.data);
+
+        // Carregar métricas de No-Show
+        try {
+          const noShowRes = await analyticsApi.getNoShow(params);
+          setNoShowMetrics(noShowRes.data);
+        } catch (noShowErr) {
+          console.warn('Erro ao carregar métricas de no-show:', noShowErr);
+        }
       } catch (err) {
         console.error('Erro ao carregar analytics:', err);
         setError('Erro ao carregar dados de analytics');
@@ -217,7 +244,16 @@ export default function AnalyticsPage() {
     };
 
     loadData();
-  }, [selectedPeriod, isCustomPeriod, customStartDate, customEndDate]);
+  }, [selectedPeriod, customStartDate, customEndDate, isCustomPeriod, selectedUnit, user]);
+
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
+        <p className="text-gray-600">Esta página é restrita para administradores.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -399,106 +435,170 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Métricas Principais */}
-        {metrics && (
-          <div id="metrics-section" className="space-y-4">
-            <h2 id="metrics-section-title" className="text-xl font-bold text-gray-800 flex items-center space-x-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <span>Métricas Principais</span>
-            </h2>
-            <div id="metrics-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard
-                title="Receita Total"
-                value={`R$ ${metrics.receitaTotal.toLocaleString('pt-BR')}`}
-                icon={DollarSign}
-                color="green"
-                trend={{
-                  value: metrics.crescimentoReceita,
-                  isPositive: metrics.crescimentoReceita > 0
-                }}
-              />
-              <MetricCard
-                title="Taxa de Conversão"
-                value={`${metrics.taxaConversao.toFixed(1)}%`}
-                subtitle={`${metrics.leadsConvertidos} de ${metrics.totalLeads} leads`}
-                icon={Target}
-                color="blue"
-              />
-              <MetricCard
-                title="Ticket Médio"
-                value={`R$ ${metrics.ticketMedio.toLocaleString('pt-BR')}`}
-                icon={Ticket}
-                color="purple"
-              />
-              <MetricCard
-                title="Tempo Médio"
-                value={`${Math.round(metrics.tempoMedioFechamento)} dias`}
-                subtitle="Até o fechamento"
-                icon={Clock}
-                color="orange"
-              />
-            </div>
-          </div>
-        )}
 
-        {/* Alertas Inteligentes */}
-        {alerts && alerts.summary.total > 0 && (
-          <div id="alerts-section" className="space-y-4">
-            <div id="alerts-header" className="flex items-center justify-between">
-              <h2 id="alerts-section-title" className="text-xl font-bold text-gray-800 flex items-center space-x-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-                <span>Alertas Inteligentes</span>
-              </h2>
-              <div id="alerts-summary-badges" className="flex items-center space-x-4">
-                <div id="alerts-high-badge" className="flex items-center space-x-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-red-700">{alerts.summary.high}</span>
+        {/* Tabs Navigation */}
+        <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+          {[
+            { id: 'overview', label: 'Visão Geral', icon: BarChart3 },
+            { id: 'funnel', label: 'Funil de Vendas', icon: Target },
+            { id: 'team', label: 'Performance da Equipe', icon: UserX },
+            { id: 'alerts', label: 'Alertas', icon: AlertCircle },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id
+                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                : 'text-gray-600 hover:bg-gray-100'
+                }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Conteúdo das Abas */}
+        <div className="space-y-6">
+          {activeTab === 'overview' && (
+            <>
+              {/* Métricas Principais */}
+              {metrics && (
+                <div id="metrics-section" className="space-y-4">
+                  <h2 id="metrics-section-title" className="text-xl font-bold text-gray-800 flex items-center space-x-2">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <span>Métricas Principais</span>
+                  </h2>
+                  {/* 1. Destaque: Receita Total */}
+                  <div className="mb-6">
+                    <MetricCard
+                      title="Receita Total"
+                      value={`R$ ${metrics.receitaTotal.toLocaleString('pt-BR')}`}
+                      icon={DollarSign}
+                      color="green"
+                      trend={{
+                        value: metrics.crescimentoReceita,
+                        isPositive: metrics.crescimentoReceita > 0
+                      }}
+                    />
+                  </div>
+
+                  {/* 2. Grid com os outros 4 cards */}
+                  <div id="metrics-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <MetricCard
+                      title="Taxa de Conversão"
+                      value={`${metrics.taxaConversao.toFixed(1)}%`}
+                      subtitle={`${metrics.leadsConvertidos} de ${metrics.totalLeads} leads`}
+                      icon={Target}
+                      color="blue"
+                    />
+                    <MetricCard
+                      title="Ticket Médio"
+                      value={`R$ ${metrics.ticketMedio.toLocaleString('pt-BR')}`}
+                      icon={Ticket}
+                      color="purple"
+                    />
+                    <MetricCard
+                      title="Tempo Médio"
+                      value={`${Math.round(metrics.tempoMedioFechamento)} dias`}
+                      subtitle="Até o fechamento"
+                      icon={Clock}
+                      color="orange"
+                    />
+                    {noShowMetrics && (
+                      <MetricCard
+                        title="Taxa de No-Show"
+                        value={`${noShowMetrics.taxaNoShow.toFixed(1)}%`}
+                        subtitle={`${noShowMetrics.consultasNaoComparecidas} de ${noShowMetrics.totalConsultasAgendadas} consultas`}
+                        icon={UserX}
+                        color="orange"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div id="alerts-medium-badge" className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-yellow-700">{alerts.summary.medium}</span>
-                </div>
-                <div id="alerts-low-badge" className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-blue-700">{alerts.summary.low}</span>
+              )}
+
+              {/* Gráficos e Análises */}
+              <div id="charts-section" className="space-y-6">
+                <h2 id="charts-section-title" className="text-xl font-bold text-gray-800">Análises Detalhadas</h2>
+                <div id="charts-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div id="chart-revenue-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
+                    <MetricsChart type="revenue" period={parseInt(selectedPeriod)} />
+                  </div>
+                  <div id="chart-sources-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
+                    <MetricsChart type="sources" period={parseInt(selectedPeriod)} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div id="alerts-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {alerts.recentAlerts.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
-              ))}
-            </div>
-          </div>
-        )}
+            </>
+          )}
 
-        {/* Gráficos e Análises */}
-        <div id="charts-section" className="space-y-6">
-          <h2 id="charts-section-title" className="text-xl font-bold text-gray-800">Análises Detalhadas</h2>
-          <div id="charts-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div id="chart-revenue-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
-              <MetricsChart type="revenue" period={parseInt(selectedPeriod)} />
-            </div>
-            <div id="chart-sources-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
-              <MetricsChart type="sources" period={parseInt(selectedPeriod)} />
-            </div>
-          </div>
-        </div>
+          {activeTab === 'alerts' && (
+            <>
+              {/* Alertas Inteligentes */}
+              {alerts && (
+                <div id="alerts-section" className="space-y-4">
+                  <div id="alerts-header" className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <h2 id="alerts-section-title" className="text-xl font-bold text-gray-800 flex items-center space-x-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <span>Alertas Inteligentes</span>
+                    </h2>
+                    <div id="alerts-summary-badges" className="flex flex-wrap gap-3 w-full md:w-auto">
+                      <div id="alerts-high-badge" className="flex-1 md:flex-none flex items-center justify-center space-x-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg min-w-[80px]">
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-red-700">{alerts.summary.high}</span>
+                      </div>
+                      <div id="alerts-medium-badge" className="flex-1 md:flex-none flex items-center justify-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg min-w-[80px]">
+                        <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-yellow-700">{alerts.summary.medium}</span>
+                      </div>
+                      <div id="alerts-low-badge" className="flex-1 md:flex-none flex items-center justify-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg min-w-[80px]">
+                        <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-blue-700">{alerts.summary.low}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {alerts.summary.total > 0 ? (
+                    <div id="alerts-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {alerts.recentAlerts.map((alert) => (
+                        <AlertCard key={alert.id} alert={alert} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900">Tudo certo por aqui!</h3>
+                      <p className="text-gray-500">Nenhum alerta pendente no momento.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
 
-        {/* Funil de Conversão */}
-        <div id="funnel-section" className="space-y-6">
-          <h2 id="funnel-section-title" className="text-xl font-bold text-gray-800">Funil de Conversão</h2>
-          <div id="funnel-chart-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
-            <FunnelChart />
-          </div>
-        </div>
+          {activeTab === 'funnel' && (
+            <>
+              {/* Funil de Conversão */}
+              <div id="funnel-section" className="space-y-6">
+                <h2 id="funnel-section-title" className="text-xl font-bold text-gray-800">Funil de Conversão</h2>
+                <div id="funnel-chart-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
+                  <FunnelChart />
+                </div>
+              </div>
+            </>
+          )}
 
-        {/* Performance da Equipe */}
-        <div id="team-section" className="space-y-6">
-          <h2 id="team-section-title" className="text-xl font-bold text-gray-800">Performance da Equipe</h2>
-          <div id="team-performance-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
-            <TeamPerformance period={selectedPeriod} />
-          </div>
+          {activeTab === 'team' && (
+            <>
+              {/* Performance da Equipe */}
+              <div id="team-section" className="space-y-6">
+                <h2 id="team-section-title" className="text-xl font-bold text-gray-800">Performance da Equipe</h2>
+                <div id="team-performance-card" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-lg transition-all duration-300">
+                  <TeamPerformance period={selectedPeriod} unitId={selectedUnit?.id} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

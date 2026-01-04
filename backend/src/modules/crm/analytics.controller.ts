@@ -10,7 +10,7 @@ export class AnalyticsController {
   constructor(
     private readonly analyticsService: AnalyticsService,
     private readonly alertsService: AlertsService
-  ) {}
+  ) { }
 
   @Get('dashboard')
   async getDashboard(@Query() filtros: DashboardFiltrosDto, @Req() req: any) {
@@ -46,15 +46,11 @@ export class AnalyticsController {
 
   @Get('performance-equipe')
   async getPerformanceEquipe(
-    @Query() filtros: { startDate?: string; endDate?: string },
+    @Query() filtros: DashboardFiltrosDto,
     @Req() req: any
   ) {
     const companyId = req.user.companyId;
-    const dateRange = filtros.startDate && filtros.endDate ? {
-      startDate: filtros.startDate,
-      endDate: filtros.endDate,
-    } : undefined;
-    return this.analyticsService.getPerformanceEquipe(companyId, dateRange);
+    return this.analyticsService.getPerformanceEquipe(companyId, filtros);
   }
 
   @Get('origem-leads')
@@ -225,5 +221,14 @@ export class AnalyticsController {
       endDate: filtros.endDate,
     } : undefined;
     return this.analyticsService.getReceitaDiaria(companyId, dateRange);
+  }
+
+  @Get('no-show')
+  async getNoShowMetrics(
+    @Query() filtros: DashboardFiltrosDto,
+    @Req() req: any
+  ) {
+    const companyId = req.user.companyId;
+    return this.analyticsService.getNoShowMetrics(companyId, filtros);
   }
 }

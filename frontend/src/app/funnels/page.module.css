@@ -39,6 +39,7 @@
   box-shadow: 0 4px 12px rgba(109, 103, 204, 0.35);
   background: linear-gradient(135deg, #5B55B8 0%, #7D77CC 100%);
 }
+
 .dropfunil {
   background: white;
   padding: 8px;
@@ -85,6 +86,7 @@
 .titulofunilespaco {
   margin-bottom: 32px;
 }
+
 .kanbanboard {
   width: 280px;
   background: #F9FAFB;
@@ -128,6 +130,7 @@
   margin-bottom: 12px;
   box-shadow: 0 2px 6px rgba(109, 103, 204, 0.25);
 }
+
 .kanbanboardsinglepai {
   background: white;
   padding: 0;
@@ -221,4 +224,112 @@
 
 .kanbanScroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(135deg, #5B55B8 0%, #7D77CC 100%);
+}
+
+/* Responsive Kanban Layout */
+.kanbanContainer {
+  min-height: 60vh;
+  width: 100vw;
+  margin-left: -2rem;
+  margin-right: -2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
+  position: relative;
+  scroll-snap-type: x mandatory;
+  /* Snap scrolling */
+  -webkit-overflow-scrolling: touch;
+}
+
+.kanbanInner {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 8px;
+  padding-right: 2rem;
+  width: max-content;
+  /* Dynamic width instead of 7000px */
+}
+
+.kanbanStep {
+  min-width: 320px;
+  width: 320px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: 320px;
+  border-radius: 12px;
+  padding: 16px;
+  scroll-snap-align: center;
+  /* Snap center on mobile */
+}
+
+/* Mobile/Tablet Adjustments */
+@media (max-width: 1024px) {
+  .kanbanContainer {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    scroll-padding: 0 16px;
+  }
+
+  .kanbanStep {
+    min-width: 85vw;
+    width: 85vw;
+    flex-basis: 85vw;
+  }
+
+  /* Header Layout */
+  .alinhatitulo,
+  #header-title-section {
+    flex-direction: column !important;
+    /* Force column */
+    align-items: stretch !important;
+    /* Stretch to full width */
+    gap: 12px;
+    width: 100%;
+  }
+
+  /* Dropdown Button */
+  .dropperson {
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: space-between;
+  }
+
+  #funnel-dropdown-container {
+    width: 100%;
+  }
+
+  /* Action Buttons (Novo Funil, Nova Etapa) */
+  #btn-new-funnel,
+  #btn-new-step {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Titles */
+  #header-title-section h1 {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 4px;
+    font-size: 24px;
+    /* Slightly smaller on mobile */
+  }
+
+  /* Dropdown Menu Position */
+  #funnel-dropdown-menu {
+    width: 100%;
+    position: absolute;
+    z-index: 50;
+  }
+
+  /* Hide external scroll buttons */
+  #btn-scroll-left,
+  #btn-scroll-right {
+    display: none;
+  }
 }

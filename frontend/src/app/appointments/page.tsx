@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addHours } from 'date-fns';
-import ptBR from 'date-fns/locale/pt-BR';
+import { ptBR } from 'date-fns/locale';
 import { Calendar, Clock, User, Phone, DollarSign, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -85,6 +85,7 @@ export default function AppointmentsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 DEBUG AppointmentsPage - Leads recebidos:', data);
         setPatients(data);
       } else {
         console.error('Erro ao buscar pacientes');
@@ -102,8 +103,17 @@ export default function AppointmentsPage() {
       .filter(patient => patient.dataConsulta)
       .map(patient => {
         const start = new Date(patient.dataConsulta!);
+
+        // Verificar se a data é válida
+        if (isNaN(start.getTime())) {
+          console.error(`❌ Erro: Data inválida para o paciente ${patient.name} (ID: ${patient.id}):`, patient.dataConsulta);
+          return null;
+        }
+
         const duracao = patient.duracaoConsulta || 60; // Padrão 60 minutos
         const end = new Date(start.getTime() + duracao * 60000); // Adicionar duração em milissegundos
+
+        console.log(`📅 Evento: ${patient.name} - Start: ${start.toISOString()} - End: ${end.toISOString()}`);
 
         return {
           id: patient.id,
@@ -112,7 +122,8 @@ export default function AppointmentsPage() {
           end,
           resource: patient,
         };
-      });
+      })
+      .filter(event => event !== null) as CalendarEvent[];
   }, [patients]);
 
   const formatCurrency = (value: number | null) => {

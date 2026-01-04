@@ -307,7 +307,7 @@ export default function PatientsPage() {
                 )}
 
                 {/* Footer */}
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
                   <div className="text-xs text-gray-500">
                     Paciente desde {new Date(patient.createdAt).toLocaleDateString('pt-BR', {
                       day: 'numeric',
@@ -315,6 +315,13 @@ export default function PatientsPage() {
                       year: 'numeric'
                     })}
                   </div>
+                  <button
+                    onClick={() => router.push(`/patients/${patient.id}`)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Ver mais
+                  </button>
                 </div>
               </div>
             ))}

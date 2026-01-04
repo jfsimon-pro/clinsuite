@@ -23,6 +23,10 @@ export class DashboardFiltrosDto {
   @IsOptional()
   @IsUUID()
   responsibleId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
 }
 
 // DTOs para responses

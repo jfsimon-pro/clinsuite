@@ -13,6 +13,14 @@ import { DecimalInterceptor } from './common/interceptors/decimal.interceptor';
 import configuration from './config/configuration';
 import { QueueModule } from './common/queues/queue.module';
 import { EventsModule } from './common/events/events.module';
+import { WhatsAppConfigModule } from './modules/whatsapp-config/whatsapp-config.module';
+import { ConsultaModule } from './modules/consulta/consulta.module';
+import { OdontogramaModule } from './modules/odontograma/odontograma.module';
+import { DocumentoModule } from './modules/documento/documento.module';
+import { PagamentoModule } from './modules/pagamento/pagamento.module';
+import { PrescricaoModule } from './modules/prescricao/prescricao.module';
+import { UnitsModule } from './modules/units/units.module';
+import { PatientAuthModule } from './modules/patient-auth/patient-auth.module';
 
 @Module({
   imports: [
@@ -26,7 +34,15 @@ import { EventsModule } from './common/events/events.module';
     AuthModule,
     CrmModule,
     WhatsAppModule,
+    WhatsAppConfigModule,
     CompaniesModule,
+    UnitsModule,
+    ConsultaModule,
+    OdontogramaModule,
+    DocumentoModule,
+    PagamentoModule,
+    PrescricaoModule,
+    PatientAuthModule,
   ],
   controllers: [AppController],
   providers: [
@@ -45,6 +61,8 @@ export class AppModule {
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'auth/register', method: RequestMethod.POST },
         { path: 'auth/refresh', method: RequestMethod.POST },
+        { path: 'patient-auth/setup', method: RequestMethod.POST },
+        { path: 'patient-auth/login', method: RequestMethod.POST },
       )
       .forRoutes('*');
   }

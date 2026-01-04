@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
-import { Zap, Plus, Edit2, Trash2, Power, MessageSquare, Clock, User, Target } from 'lucide-react';
+import { Zap, Plus, Edit2, Trash2, Power, MessageSquare, Clock, User, Target, Lock } from 'lucide-react';
 
 export default function AutomacaoPage() {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export default function AutomacaoPage() {
   }
 
   return (
-    <div id="automacao-page-container" className="p-8">
+    <div id="automacao-page-container" className="p-8 relative group">
       {/* Header */}
       <div id="page-header" className="mb-8">
         <div id="page-header-content" className="flex items-center justify-between">
@@ -212,6 +212,15 @@ export default function AutomacaoPage() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* Lock Overlay */}
+      <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 flex flex-col items-center justify-center cursor-not-allowed">
+        <div className="bg-white p-4 rounded-full shadow-xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
+          <Lock className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Disponível Junto com WhatsApp</h3>
+        <p className="text-gray-600 font-medium">Esta funcionalidade será desbloqueada junto com o módulo do WhatsApp</p>
       </div>
     </div>
   );

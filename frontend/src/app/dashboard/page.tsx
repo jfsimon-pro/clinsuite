@@ -163,25 +163,25 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header Flat */}
-        <div className="bg-white rounded-2xl p-8 border border-gray-200">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex items-center">
+        <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200">
+          <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent flex flex-col md:flex-row items-start md:items-center gap-3">
             {user.role === 'ADMIN' ? (
               <>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mr-4">
-                  <Building2 className="w-7 h-7 text-white" />
+                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 md:w-7 md:h-7 text-white" />
                 </div>
-                Dashboard Administrativo
+                <span>Dashboard Administrativo</span>
               </>
             ) : (
               <>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mr-4">
-                  <ClipboardList className="w-7 h-7 text-white" />
+                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <ClipboardList className="w-5 h-5 md:w-7 md:h-7 text-white" />
                 </div>
-                Dashboard de Trabalho
+                <span>Dashboard de Trabalho</span>
               </>
             )}
           </h1>
-          <p className="text-gray-600 mt-3 ml-1 text-lg">
+          <p className="text-gray-600 mt-3 md:ml-1 text-sm md:text-lg">
             Bem-vindo, <span className="font-semibold text-gray-800">{user.name}</span> - {user.company.name}
           </p>
         </div>
@@ -215,7 +215,7 @@ export default function DashboardPage() {
             <p className="text-4xl font-bold text-gray-900 mb-2">
               {stats?.tasks.overdue || 0}
             </p>
-            {stats?.tasks.overdue > 0 && (
+            {(stats?.tasks?.overdue ?? 0) > 0 && (
               <p className="text-sm text-red-600 font-semibold">⚠️ Atenção necessária!</p>
             )}
           </div>

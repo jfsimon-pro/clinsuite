@@ -18,7 +18,8 @@ import {
   Trash2,
   Upload,
   CheckCircle,
-  MessageSquare
+  MessageSquare,
+  Lock
 } from 'lucide-react';
 import './whatsapp-official.css';
 
@@ -320,7 +321,7 @@ export default function WhatsappOfficialPage() {
   const currentChat = mockChats.find(c => c.id === selectedChat);
 
   return (
-    <div className="whatsapp-official-main">
+    <div className="whatsapp-official-main relative group">
       {/* Tabs Navigation */}
       <div className="tabs-navigation">
         <button
@@ -347,159 +348,159 @@ export default function WhatsappOfficialPage() {
         <div className="whatsapp-official-container">
           {/* Sidebar de Chats */}
           <div className="whatsapp-sidebar">
-        <div className="sidebar-header">
-          <h2 className="sidebar-title">Mensagens</h2>
-          <button className="btn-new-chat" title="Nova conversa">
-            <Plus size={20} />
-          </button>
-        </div>
-
-        <div className="search-container">
-          <Search size={18} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Pesquisar conversa..."
-            className="search-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="chats-list">
-          {filteredChats.map((chat) => (
-            <div
-              key={chat.id}
-              className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
-              onClick={() => setSelectedChat(chat.id)}
-            >
-              <div className="chat-avatar">
-                {chat.avatar}
-                <span className={`status-dot ${chat.status}`} />
-              </div>
-              <div className="chat-info">
-                <div className="chat-header">
-                  <span className="chat-name">{chat.name}</span>
-                  <span className="chat-time">{formatDate(chat.timestamp)}</span>
-                </div>
-                <div className="chat-preview">
-                  <p className="preview-text">{chat.lastMessage}</p>
-                  {chat.unread > 0 && (
-                    <span className="unread-badge">{chat.unread}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Área de Conversa */}
-      <div className="whatsapp-chat">
-        {currentChat && (
-          <>
-            {/* Chat Header */}
-            <div className="chat-header-top">
-              <div className="chat-header-left">
-                <div className="chat-avatar-header">
-                  {currentChat.avatar}
-                  <span className={`status-dot ${currentChat.status}`} />
-                </div>
-                <div className="chat-header-info">
-                  <h3 className="chat-header-name">{currentChat.name}</h3>
-                  <p className={`chat-header-status ${currentChat.status}`}>
-                    {currentChat.status === 'online'
-                      ? 'Online agora'
-                      : currentChat.status === 'away'
-                        ? 'Ativo(a) agora'
-                        : 'Offline'}
-                  </p>
-                </div>
-              </div>
-              <div className="chat-header-actions">
-                <button className="header-action-btn" title="Chamada de voz">
-                  <Phone size={20} />
-                </button>
-                <button className="header-action-btn" title="Videochamada">
-                  <Video size={20} />
-                </button>
-                <button className="header-action-btn" title="Mais opções">
-                  <MoreVertical size={20} />
-                </button>
-              </div>
+            <div className="sidebar-header">
+              <h2 className="sidebar-title">Mensagens</h2>
+              <button className="btn-new-chat" title="Nova conversa">
+                <Plus size={20} />
+              </button>
             </div>
 
-            {/* Messages Container */}
-            <div className="messages-container">
-              {messages.map((msg) => (
+            <div className="search-container">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Pesquisar conversa..."
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="chats-list">
+              {filteredChats.map((chat) => (
                 <div
-                  key={msg.id}
-                  className={`message-wrapper ${msg.sender === 'user' ? 'sent' : 'received'}`}
+                  key={chat.id}
+                  className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
+                  onClick={() => setSelectedChat(chat.id)}
                 >
-                  <div className={`message ${msg.sender === 'user' ? 'user-message' : 'contact-message'}`}>
-                    <p className="message-text">{msg.text}</p>
-                    {msg.requiresApproval && msg.sender === 'user' && (
-                      <div className="approval-actions">
-                        <button
-                          className="btn-approve"
-                          onClick={() => handleApproveMessage(msg.id)}
-                          title="Aprovar mensagem"
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          className="btn-reject"
-                          onClick={() => handleRejectMessage(msg.id)}
-                          title="Rejeitar mensagem"
-                        >
-                          Rejeitar
-                        </button>
-                      </div>
-                    )}
-                    <div className="message-footer">
-                      <span className="message-time">{formatTime(msg.timestamp)}</span>
-                      {msg.sender === 'user' && <StatusIcon status={msg.status} />}
+                  <div className="chat-avatar">
+                    {chat.avatar}
+                    <span className={`status-dot ${chat.status}`} />
+                  </div>
+                  <div className="chat-info">
+                    <div className="chat-header">
+                      <span className="chat-name">{chat.name}</span>
+                      <span className="chat-time">{formatDate(chat.timestamp)}</span>
+                    </div>
+                    <div className="chat-preview">
+                      <p className="preview-text">{chat.lastMessage}</p>
+                      {chat.unread > 0 && (
+                        <span className="unread-badge">{chat.unread}</span>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* Message Input */}
-            <form className="message-input-container" onSubmit={handleSendMessage}>
-              <button type="button" className="input-action-btn" title="Anexar arquivo">
-                <Paperclip size={20} />
-              </button>
-              <input
-                type="text"
-                placeholder="Digite uma mensagem..."
-                className="message-input"
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-              />
-              <button type="button" className="input-action-btn" title="Emoji">
-                <Smile size={20} />
-              </button>
-              <button
-                type="submit"
-                className="btn-send"
-                disabled={!messageText.trim()}
-                title="Enviar mensagem"
-              >
-                <Send size={20} />
-              </button>
-            </form>
+          {/* Área de Conversa */}
+          <div className="whatsapp-chat">
+            {currentChat && (
+              <>
+                {/* Chat Header */}
+                <div className="chat-header-top">
+                  <div className="chat-header-left">
+                    <div className="chat-avatar-header">
+                      {currentChat.avatar}
+                      <span className={`status-dot ${currentChat.status}`} />
+                    </div>
+                    <div className="chat-header-info">
+                      <h3 className="chat-header-name">{currentChat.name}</h3>
+                      <p className={`chat-header-status ${currentChat.status}`}>
+                        {currentChat.status === 'online'
+                          ? 'Online agora'
+                          : currentChat.status === 'away'
+                            ? 'Ativo(a) agora'
+                            : 'Offline'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="chat-header-actions">
+                    <button className="header-action-btn" title="Chamada de voz">
+                      <Phone size={20} />
+                    </button>
+                    <button className="header-action-btn" title="Videochamada">
+                      <Video size={20} />
+                    </button>
+                    <button className="header-action-btn" title="Mais opções">
+                      <MoreVertical size={20} />
+                    </button>
+                  </div>
+                </div>
 
-            {/* Info Box - Envio para Aprovação */}
-            <div className="approval-info-box">
-              <AlertCircle size={16} />
-              <p>
-                As mensagens aguardando aprovação devem ser revisadas pelo Meta antes de serem enviadas.
-                Clique em "Aprovar" para enviar ou "Rejeitar" para descartar.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+                {/* Messages Container */}
+                <div className="messages-container">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`message-wrapper ${msg.sender === 'user' ? 'sent' : 'received'}`}
+                    >
+                      <div className={`message ${msg.sender === 'user' ? 'user-message' : 'contact-message'}`}>
+                        <p className="message-text">{msg.text}</p>
+                        {msg.requiresApproval && msg.sender === 'user' && (
+                          <div className="approval-actions">
+                            <button
+                              className="btn-approve"
+                              onClick={() => handleApproveMessage(msg.id)}
+                              title="Aprovar mensagem"
+                            >
+                              Aprovar
+                            </button>
+                            <button
+                              className="btn-reject"
+                              onClick={() => handleRejectMessage(msg.id)}
+                              title="Rejeitar mensagem"
+                            >
+                              Rejeitar
+                            </button>
+                          </div>
+                        )}
+                        <div className="message-footer">
+                          <span className="message-time">{formatTime(msg.timestamp)}</span>
+                          {msg.sender === 'user' && <StatusIcon status={msg.status} />}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Message Input */}
+                <form className="message-input-container" onSubmit={handleSendMessage}>
+                  <button type="button" className="input-action-btn" title="Anexar arquivo">
+                    <Paperclip size={20} />
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="Digite uma mensagem..."
+                    className="message-input"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                  />
+                  <button type="button" className="input-action-btn" title="Emoji">
+                    <Smile size={20} />
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-send"
+                    disabled={!messageText.trim()}
+                    title="Enviar mensagem"
+                  >
+                    <Send size={20} />
+                  </button>
+                </form>
+
+                {/* Info Box - Envio para Aprovação */}
+                <div className="approval-info-box">
+                  <AlertCircle size={16} />
+                  <p>
+                    As mensagens aguardando aprovação devem ser revisadas pelo Meta antes de serem enviadas.
+                    Clique em "Aprovar" para enviar ou "Rejeitar" para descartar.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -662,6 +663,15 @@ export default function WhatsappOfficialPage() {
           </div>
         </div>
       )}
+
+      {/* Lock Overlay */}
+      <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 flex flex-col items-center justify-center cursor-not-allowed">
+        <div className="bg-white p-4 rounded-full shadow-xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
+          <Lock className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Disponível Junto com WhatsApp</h3>
+        <p className="text-gray-600 font-medium">Esta funcionalidade será desbloqueada junto com o módulo do WhatsApp</p>
+      </div>
     </div>
   );
 }

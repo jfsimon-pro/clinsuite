@@ -62,7 +62,7 @@ export interface TaskStats {
 
 @Injectable()
 export class TaskService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(data: CreateTaskDto, companyId: string): Promise<Task> {
     // Validar se o lead existe e pertence à empresa
@@ -540,11 +540,11 @@ export class TaskService {
     }
 
     const createdTasks: Task[] = [];
-    
+
     for (const rule of rules) {
       // Determinar responsável
       let assignedId: string;
-      
+
       switch (rule.assignType) {
         case 'LEAD_OWNER':
           if (!lead.responsibleId) {
@@ -552,14 +552,14 @@ export class TaskService {
           }
           assignedId = lead.responsibleId;
           break;
-        
+
         case 'FIXED_USER':
           if (!rule.assignedUserId) {
             continue; // Pula se regra não tem usuário fixo
           }
           assignedId = rule.assignedUserId;
           break;
-        
+
         case 'ROUND_ROBIN':
           // TODO: Implementar round robin
           // Por enquanto, usar o responsável do lead ou pular
@@ -568,14 +568,14 @@ export class TaskService {
           }
           assignedId = lead.responsibleId;
           break;
-        
+
         default:
           continue;
       }
 
       // Calcular data de vencimento
       let dueDate: Date;
-      
+
       if (rule.delayType === 'ABSOLUTE') {
         // X dias após lead entrar na etapa (agora)
         dueDate = new Date();
@@ -692,12 +692,12 @@ export class TaskService {
         fs.name as "stepName",
         COUNT(t.id)::int as "totalTasks",
         COUNT(CASE WHEN t.status = 'COMPLETED' THEN 1 END)::int as "completedTasks",
-        COALESCE(AVG(EXTRACT(DAY FROM (t.completed_at - t.created_at))), 0)::int as "avgCompletionTime"
+        COALESCE(AVG(EXTRACT(DAY FROM (t."completedAt" - t."createdAt"))), 0)::int as "avgCompletionTime"
       FROM "FunnelStep" fs
       LEFT JOIN "StageTaskRule" str ON str."stepId" = fs.id
-      LEFT JOIN "Task" t ON t.rule_id = str.id AND t.company_id = ${companyId}
-      WHERE fs.funnel_id IN (
-        SELECT id FROM "Funnel" WHERE company_id = ${companyId}
+      LEFT JOIN "Task" t ON t."ruleId" = str.id AND t."companyId" = ${companyId}
+      WHERE fs."funnelId" IN (
+        SELECT id FROM "Funnel" WHERE "companyId" = ${companyId}
       )
       GROUP BY fs.id, fs.name
       ORDER BY fs."order"
