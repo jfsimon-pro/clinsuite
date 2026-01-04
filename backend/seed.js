@@ -63,13 +63,11 @@ async function seed() {
     console.log('🎯 Criando funil padrão...');
     const funnel = await prisma.funnel.upsert({
       where: {
-        name_companyId: {
-          name: 'Novos Contatos',
-          companyId: company.id
-        }
+        id: 'f1234567-1234-1234-1234-123456789abc'
       },
       update: {},
       create: {
+        id: 'f1234567-1234-1234-1234-123456789abc',
         name: 'Novos Contatos',
         companyId: company.id,
       },
@@ -89,26 +87,25 @@ async function seed() {
       { name: 'Fechado - Ganho', order: 6, tipoConceitual: 'FECHAMENTO' },
     ];
 
-    for (const stepData of steps) {
-      const step = await prisma.funnelStep.upsert({
-        where: {
-          funnelId_order: {
-            funnelId: funnel.id,
-            order: stepData.order
-          }
-        },
-        update: {
-          tipoConceitual: stepData.tipoConceitual
-        },
-        create: {
-          name: stepData.name,
-          order: stepData.order,
-          funnelId: funnel.id,
-          tipoConceitual: stepData.tipoConceitual,
-        },
-      });
+    // Verificar se já existem etapas
+    const existingSteps = await prisma.funnelStep.findMany({
+      where: { funnelId: funnel.id }
+    });
 
-      console.log(`✅ Etapa criada: ${step.name} (${step.tipoConceitual})`);
+    if (existingSteps.length === 0) {
+      for (const stepData of steps) {
+        const step = await prisma.funnelStep.create({
+          data: {
+            name: stepData.name,
+            order: stepData.order,
+            funnelId: funnel.id,
+            tipoConceitual: stepData.tipoConceitual,
+          },
+        });
+        console.log(`✅ Etapa criada: ${step.name} (${step.tipoConceitual})`);
+      }
+    } else {
+      console.log('✅ Etapas já existem, pulando criação...');
     }
 
     console.log('🎉 Seed concluído com sucesso!');
