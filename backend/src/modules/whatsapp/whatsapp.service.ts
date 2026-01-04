@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { VenomService } from './venom.service';
 import { BaileysService } from './baileys.service';
 import { CreateWhatsAppConnectionDto } from './dto/create-whatsapp-connection.dto';
 import { WhatsAppStatus } from '@prisma/client';
@@ -11,9 +10,8 @@ export class WhatsAppService {
 
   constructor(
     private prisma: PrismaService,
-    private venomService: VenomService,
     private baileysService: BaileysService,
-  ) {}
+  ) { }
 
   async createConnection(companyId: string, dto: CreateWhatsAppConnectionDto) {
     return this.prisma.whatsAppConnection.create({
@@ -65,13 +63,13 @@ export class WhatsAppService {
 
     try {
       this.logger.log(`Iniciando conexão WhatsApp para: ${connection.name}`);
-      
+
       // Gerar QR Code via Baileys (mais estável)
       const qrCode = await this.baileysService.getQRCode(connectionId);
-      
+
       await this.prisma.whatsAppConnection.update({
         where: { id: connectionId },
-        data: { 
+        data: {
           qrCode,
           status: WhatsAppStatus.CONNECTING,
         },
@@ -108,7 +106,7 @@ export class WhatsAppService {
 
     return this.prisma.whatsAppConnection.update({
       where: { id: connectionId },
-      data: { 
+      data: {
         status: WhatsAppStatus.DISCONNECTED,
         qrCode: null,
         sessionId: null,
@@ -126,7 +124,7 @@ export class WhatsAppService {
     }
 
     return this.prisma.whatsAppChat.findMany({
-      where: { 
+      where: {
         connectionId,
         isGroup: false, // Apenas conversas individuais
       },
@@ -191,7 +189,8 @@ export class WhatsAppService {
     return message;
   }
 
-  // Método para sincronizar chats do VenomBot com o banco
+  // TODO: Implementar sincronização de chats usando Baileys
+  // Por enquanto, os chats são sincronizados automaticamente quando mensagens chegam
   async syncChats(connectionId: string, companyId: string) {
     const connection = await this.prisma.whatsAppConnection.findFirst({
       where: { id: connectionId, companyId },
@@ -201,48 +200,15 @@ export class WhatsAppService {
       throw new Error('Conexão não encontrada');
     }
 
-    if (!this.venomService.isSessionActive(connectionId)) {
-      throw new Error('Sessão não está ativa');
-    }
+    // Baileys sincroniza chats automaticamente via eventos
+    // Esta função agora apenas retorna os chats existentes no banco
+    const chats = await this.prisma.whatsAppChat.findMany({
+      where: { connectionId },
+      orderBy: { updatedAt: 'desc' },
+    });
 
-    try {
-      const venomChats = await this.venomService.getChats(connectionId);
-      
-      for (const venomChat of venomChats) {
-        // Verificar se o chat já existe no banco
-        const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const contactName = (venomChat as any).name || 'Contato';
-        const contactPhone = `phone_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        let chat = await this.prisma.whatsAppChat.findFirst({
-          where: {
-            connectionId,
-            contactId: chatId,
-          },
-        });
-
-        if (!chat) {
-          // Criar novo chat
-          await this.prisma.whatsAppChat.create({
-            data: {
-              connectionId,
-              contactId: chatId,
-              contactName: contactName,
-              contactPhone: contactPhone,
-              isGroup: false,
-              lastMessage: (venomChat as any).lastMessage?.content || '',
-              lastMessageTime: (venomChat as any).lastMessage?.timestamp ? new Date((venomChat as any).lastMessage.timestamp * 1000) : null,
-              unreadCount: 0,
-            },
-          });
-        }
-      }
-
-      this.logger.log(`Sincronizados ${venomChats.length} chats para conexão ${connectionId}`);
-    } catch (error) {
-      this.logger.error(`Erro ao sincronizar chats: ${error.message}`);
-      throw error;
-    }
+    this.logger.log(`Encontrados ${chats.length} chats para conexão ${connectionId}`);
+    return chats;
   }
 
   // Método para verificar status da conexão
